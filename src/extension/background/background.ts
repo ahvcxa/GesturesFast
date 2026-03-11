@@ -1,6 +1,6 @@
 // Dosya: src/extension/background/background.ts
 
-import { GestureRecognizer, Point } from '../../../core/domain/recognizer';
+import { GestureRecognizer, Point } from '../../core/domain/recognizer';
 
 // 1. Tanıma Motorunu Başlat
 const recognizer = new GestureRecognizer();

@@ -1,14 +1,15 @@
 {
     "manifest_version": 3,
-    "name": "ProjectMaker Gesture Control",
+    "name": "GesturesFast",
     "version": "1.0.0",
-    "description": "Tarayıcınızı fare hareketleriyle (gestures) kontrol edin.",
+    "description": "Ultra hızlı fare hareketleri eklentisi.",
     "permissions": [
         "tabs",
-        "storage",
-        "scripting",
-        "activeTab"
+        "storage"
     ],
+    "action": {
+        "default_popup": "src/extension/ui/options.html"
+    },
     "background": {
         "service_worker": "background.js",
         "type": "module"
@@ -23,9 +24,5 @@
             ],
             "run_at": "document_idle"
         }
-    ],
-    "action": {
-        "default_title": "ProjectMaker Gestures",
-        "default_popup": "popup.html"
-    }
+    ]
 }
