@@ -5,11 +5,11 @@
     "description": "Ultra hızlı fare hareketleri eklentisi.",
     "permissions": [
         "tabs",
-        "storage"
+        "storage",
+        "sessions"
     ],
-    "action": {
-        "default_popup": "src/extension/ui/options.html"
-    },
+    "action": {},
+    "options_page": "options.html",
     "background": {
         "service_worker": "background.js",
         "type": "module"

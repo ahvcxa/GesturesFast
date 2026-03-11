@@ -1,67 +1,60 @@
 // Dosya: src/extension/background/background.ts
 
-import { GestureRecognizer, Point } from '../../core/domain/recognizer';
+let userGestures: Record<string, string> = {};
 
-// 1. Tanıma Motorunu Başlat
-const recognizer = new GestureRecognizer();
+chrome.storage.local.get(['customGestures'], (result) => {
+    if (result.customGestures) {
+        userGestures = result.customGestures;
+    } else {
+        // Varsayılanlara yeni aksiyonları da örnek olarak ekleyebiliriz
+        userGestures = { "DR": "CloseTab", "L": "GoBack", "R": "GoForward", "UD": "Reload", "U": "ScrollTop", "D": "ScrollBottom" };
+    }
+});
 
-// 2. MVP için Varsayılan Şablonları (Templates) Yükle
-// Gerçek dünyada bu koordinatlar kullanıcının çizdiği örneklerden (UI üzerinden) elde edilir.
-// Şimdilik basit geometrik şekillerle simüle ediyoruz.
-recognizer.addTemplate("CloseTab", [
-    new Point(0, 0), new Point(0, 100), new Point(100, 100) // "L" Şekli
-]);
+chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local' && changes.customGestures) {
+        userGestures = changes.customGestures.newValue;
+    }
+});
 
-recognizer.addTemplate("GoBack", [
-    new Point(100, 50), new Point(0, 50), new Point(50, 0) // Sola Ok "<" Şekli
-]);
-
-recognizer.addTemplate("GoForward", [
-    new Point(0, 50), new Point(100, 50), new Point(50, 0) // Sağa Ok ">" Şekli
-]);
-
-recognizer.addTemplate("Reload", [
-    new Point(50, 0), new Point(100, 50), new Point(50, 100), new Point(0, 50), new Point(50, 0) // Çember Şekli
-]);
-
-const MIN_MATCH_SCORE = 0.80; // %80 benzerlik eşiği
-
-// 3. Content Script'ten gelen mesajları dinle
 chrome.runtime.onMessage.addListener((message, sender) => {
-    if (message.type === 'PROCESS_GESTURE' && message.payload.points) {
-        const points: Point[] = message.payload.points;
-
-        // Motoru çalıştır
-        const result = recognizer.recognize(points);
-
-        console.log(`[Gesture Engine] Tespit: ${result.name} (Skor: ${(result.score * 100).toFixed(2)}%, Süre: ${result.timeMs.toFixed(2)}ms)`);
-
-        // Eğer güven skoru yeterliyse aksiyonu tetikle
-        if (result.score >= MIN_MATCH_SCORE && result.name !== "Bilinmiyor") {
-            executeAction(result.name, sender.tab?.id);
+    if (message.type === 'PROCESS_GESTURE' && message.payload.sequence) {
+        const actionName = userGestures[message.payload.sequence];
+        if (actionName) {
+            executeAction(actionName, sender.tab?.id);
         }
     }
 });
 
-// 4. Eşleşen jestlere göre Chrome API aksiyonlarını çalıştır
 function executeAction(actionName: string, tabId?: number) {
-    if (!tabId) return;
-
     switch (actionName) {
         case "CloseTab":
-            chrome.tabs.remove(tabId);
+            if (tabId) chrome.tabs.remove(tabId);
             break;
         case "GoBack":
-            // Bazı özel sayfalarda geri gidilemeyebilir, hata yakalama (catch) önemlidir.
-            chrome.tabs.goBack(tabId).catch(() => console.log("Geri gidilecek sayfa yok."));
+            if (tabId) chrome.tabs.goBack(tabId).catch(() => { });
             break;
         case "GoForward":
-            chrome.tabs.goForward(tabId).catch(() => console.log("İleri gidilecek sayfa yok."));
+            if (tabId) chrome.tabs.goForward(tabId).catch(() => { });
             break;
         case "Reload":
-            chrome.tabs.reload(tabId);
+            if (tabId) chrome.tabs.reload(tabId);
             break;
-        default:
-            console.warn("Eşleşen aksiyon için bir komut bulunamadı:", actionName);
+        case "ReopenTab":
+            // Son kapanan sekmeyi veya pencereyi geri yükler
+            chrome.sessions.restore();
+            break;
+        case "ScrollTop":
+        case "ScrollBottom":
+            // Bu komutları sayfaya (content script'e) iletiyoruz
+            if (tabId) {
+                chrome.tabs.sendMessage(tabId, { type: 'PAGE_ACTION', action: actionName }).catch(() => { });
+            }
+            break;
     }
 }
+
+// Eklenti ikonuna tıklandığında ayarlar sayfasını yeni bir sekmede tam ekran aç
+chrome.action.onClicked.addListener(() => {
+    chrome.tabs.create({ url: 'options.html' });
+});

@@ -1,178 +1,128 @@
 // Dosya: src/extension/ui/Options.tsx
-import React, { useState, useRef, useEffect } from 'react';
-
-interface Point { x: number; y: number; }
-interface SavedGesture { id: string; name: string; action: string; points: Point[] }
+import React, { useState, useEffect } from 'react';
 
 const AVAILABLE_ACTIONS = [
     { id: 'CloseTab', label: 'Sekmeyi Kapat' },
     { id: 'GoBack', label: 'Geri Git' },
     { id: 'GoForward', label: 'İleri Git' },
-    { id: 'Reload', label: 'Sayfayı Yenile' }
+    { id: 'Reload', label: 'Sayfayı Yenile' },
+    { id: 'ReopenTab', label: 'Son Kapanan Sekmeyi Aç' },
+    { id: 'ScrollTop', label: 'Sayfanın En Üstüne Çık' },
+    { id: 'ScrollBottom', label: 'Sayfanın En Altına İn' }
 ];
-
 export const Options: React.FC = () => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
-    const [savedGestures, setSavedGestures] = useState<SavedGesture[]>([]);
+    const [savedGestures, setSavedGestures] = useState<Record<string, string>>({});
+    const [currentSequence, setCurrentSequence] = useState<string>('');
     const [selectedAction, setSelectedAction] = useState('CloseTab');
-    const [gestureName, setGestureName] = useState('');
 
-    // Yüklendiğinde kayıtlı jestleri Chrome Storage'dan çek
     useEffect(() => {
-        if (chrome && chrome.storage) {
-            chrome.storage.local.get(['userGestures'], (result) => {
-                if (result.userGestures) {
-                    setSavedGestures(result.userGestures);
-                }
-            });
-        }
+        chrome.storage.local.get(['customGestures'], (result) => {
+            if (result.customGestures) {
+                setSavedGestures(result.customGestures);
+            } else {
+                const defaults = { "DR": "CloseTab", "L": "GoBack", "R": "GoForward", "UD": "Reload" };
+                setSavedGestures(defaults);
+            }
+        });
     }, []);
 
-    // Çizim İşlemleri
-    const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        setIsDrawing(true);
-        const rect = canvasRef.current!.getBoundingClientRect();
-        setCurrentPoints([{ x: e.clientX - rect.left, y: e.clientY - rect.top }]);
-
-        const ctx = canvasRef.current!.getContext('2d');
-        if (ctx) {
-            ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-            ctx.beginPath();
-            ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-            ctx.lineWidth = 4;
-            ctx.strokeStyle = '#3b82f6';
-            ctx.lineCap = 'round';
-        }
+    const addDirection = (dir: string) => {
+        if (currentSequence.endsWith(dir)) return;
+        setCurrentSequence(prev => prev + dir);
     };
 
-    const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (!isDrawing) return;
-        const rect = canvasRef.current!.getBoundingClientRect();
-        const newPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        setCurrentPoints(prev => [...prev, newPoint]);
-
-        const ctx = canvasRef.current!.getContext('2d');
-        if (ctx) {
-            ctx.lineTo(newPoint.x, newPoint.y);
-            ctx.stroke();
-        }
-    };
-
-    const stopDrawing = () => {
-        setIsDrawing(false);
-    };
-
-    // Yeni Jesti Kaydet
     const saveGesture = () => {
-        if (currentPoints.length < 10) {
-            alert('Lütfen daha belirgin bir şekil çizin.');
-            return;
-        }
-        if (!gestureName.trim()) {
-            alert('Lütfen jestinize bir isim verin.');
-            return;
-        }
+        if (!currentSequence) return;
+        const newGestures = { ...savedGestures, [currentSequence]: selectedAction };
+        setSavedGestures(newGestures);
+        chrome.storage.local.set({ customGestures: newGestures }, () => setCurrentSequence(''));
+    };
 
-        const newGesture: SavedGesture = {
-            id: crypto.randomUUID(),
-            name: gestureName,
-            action: selectedAction,
-            points: currentPoints
-        };
+    const deleteGesture = (sequence: string) => {
+        const newGestures = { ...savedGestures };
+        delete newGestures[sequence];
+        setSavedGestures(newGestures);
+        chrome.storage.local.set({ customGestures: newGestures });
+    };
 
-        const updatedGestures = [...savedGestures, newGesture];
-        setSavedGestures(updatedGestures);
-
-        if (chrome && chrome.storage) {
-            chrome.storage.local.set({ userGestures: updatedGestures }, () => {
-                console.log('Jest başarıyla kaydedildi.');
-                // Çizim alanını temizle
-                setCurrentPoints([]);
-                setGestureName('');
-                const ctx = canvasRef.current!.getContext('2d');
-                ctx?.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-            });
-        }
+    const renderArrows = (seq: string) => {
+        return seq.split('').map((char, idx) => {
+            if (char === 'U') return <span key={idx}>↑</span>;
+            if (char === 'D') return <span key={idx}>↓</span>;
+            if (char === 'L') return <span key={idx}>←</span>;
+            if (char === 'R') return <span key={idx}>→</span>;
+            return null;
+        });
     };
 
     return (
-        <div className="max-w-4xl mx-auto p-8">
-            <h1 className="text-3xl font-bold mb-8 text-gray-800">ProjectMaker: Jest Yönetimi</h1>
+        <div className="max-w-4xl mx-auto p-10 font-sans text-gray-800">
+            <header className="mb-12">
+                <h1 className="text-3xl font-light tracking-tight text-gray-900">Gestures<span className="font-semibold text-blue-600">Fast</span></h1>
+                <p className="text-sm text-gray-500 mt-2">Fare hareketlerinizi yönetin.</p>
+            </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Sol Panel: Yeni Jest Ekleme */}
-                <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Yeni Jest Öğret</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Jest Adı</label>
-                        <input
-                            type="text"
-                            value={gestureName}
-                            onChange={(e) => setGestureName(e.target.value)}
-                            className="w-full border border-gray-300 rounded p-2"
-                            placeholder="Örn: V Şekli"
-                        />
+                {/* Sol Panel */}
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                    <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-6">Yeni Kombinasyon</h2>
+
+                    <div className="mb-8 bg-gray-50/50 h-28 rounded-xl flex items-center justify-center text-4xl text-gray-700 tracking-[0.2em] border border-gray-100">
+                        {currentSequence ? renderArrows(currentSequence) : <span className="text-gray-300 text-sm tracking-normal">Yön tuşlarına tıklayın</span>}
                     </div>
 
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Tetiklenecek Aksiyon</label>
+                    <div className="grid grid-cols-3 gap-3 w-48 mx-auto mb-8">
+                        <div />
+                        <button onClick={() => addDirection('U')} className="h-14 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-500 rounded-xl text-xl shadow-sm transition-all duration-200">↑</button>
+                        <div />
+                        <button onClick={() => addDirection('L')} className="h-14 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-500 rounded-xl text-xl shadow-sm transition-all duration-200">←</button>
+                        <button onClick={() => addDirection('D')} className="h-14 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-500 rounded-xl text-xl shadow-sm transition-all duration-200">↓</button>
+                        <button onClick={() => addDirection('R')} className="h-14 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-500 rounded-xl text-xl shadow-sm transition-all duration-200">→</button>
+                    </div>
+
+                    <div className="flex gap-3 mb-6">
+                        <button onClick={() => setCurrentSequence('')} className="flex-1 bg-gray-50 text-gray-500 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">Temizle</button>
+                    </div>
+
+                    <div className="mb-6">
                         <select
                             value={selectedAction}
                             onChange={(e) => setSelectedAction(e.target.value)}
-                            className="w-full border border-gray-300 rounded p-2"
+                            className="w-full border border-gray-200 bg-gray-50 text-gray-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
                         >
-                            {AVAILABLE_ACTIONS.map(action => (
-                                <option key={action.id} value={action.id}>{action.label}</option>
-                            ))}
+                            {AVAILABLE_ACTIONS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
                         </select>
                     </div>
 
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Buraya Çizin (Farenin sol tuşuna basılı tutarak)</label>
-                        <canvas
-                            ref={canvasRef}
-                            width={400}
-                            height={300}
-                            className="border-2 border-dashed border-gray-300 bg-gray-50 cursor-crosshair w-full rounded"
-                            onMouseDown={startDrawing}
-                            onMouseMove={draw}
-                            onMouseUp={stopDrawing}
-                            onMouseLeave={stopDrawing}
-                        />
-                    </div>
-
-                    <button
-                        onClick={saveGesture}
-                        className="w-full bg-blue-600 text-white font-semibold py-2 rounded hover:bg-blue-700 transition"
-                    >
-                        Kaydet ve Senkronize Et
+                    <button onClick={saveGesture} className="w-full bg-blue-600 text-white font-medium py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                        Kombinasyonu Kaydet
                     </button>
                 </div>
 
-                {/* Sağ Panel: Kayıtlı Jestler */}
-                <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Kayıtlı Jestlerim</h2>
-                    {savedGestures.length === 0 ? (
-                        <p className="text-gray-500">Henüz kaydedilmiş bir jestiniz yok.</p>
-                    ) : (
-                        <ul className="space-y-3">
-                            {savedGestures.map(gesture => (
-                                <li key={gesture.id} className="p-3 border border-gray-100 rounded bg-gray-50 flex justify-between items-center">
-                                    <div>
-                                        <span className="font-semibold block">{gesture.name}</span>
-                                        <span className="text-sm text-gray-500">Aksiyon: {AVAILABLE_ACTIONS.find(a => a.id === gesture.action)?.label}</span>
-                                    </div>
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                        {gesture.points.length} Nokta
+                {/* Sağ Panel */}
+                <div>
+                    <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-6">Kayıtlı Hareketler</h2>
+                    <ul className="space-y-3">
+                        {Object.entries(savedGestures).map(([seq, actionId]) => (
+                            <li key={seq} className="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm flex justify-between items-center group transition-all hover:border-gray-200">
+                                <div className="flex items-center gap-4">
+                                    <div className="text-xl text-gray-700 font-medium tracking-widest w-16">{renderArrows(seq)}</div>
+                                    <span className="text-sm text-gray-600">
+                                        {AVAILABLE_ACTIONS.find(a => a.id === actionId)?.label || actionId}
                                     </span>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                                </div>
+                                <button
+                                    onClick={() => deleteGesture(seq)}
+                                    className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2"
+                                >
+                                    Sil
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
+
             </div>
         </div>
     );

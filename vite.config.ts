@@ -11,7 +11,7 @@ export default defineConfig({
         rollupOptions: {
             // 3 farklı giriş noktamız var (Options UI, Background, Content Script)
             input: {
-                options: resolve(__dirname, 'src/extension/ui/options.html'),
+                options: resolve(__dirname, 'options.html'),
                 background: resolve(__dirname, 'src/extension/background/background.ts'),
                 content: resolve(__dirname, 'src/extension/content_scripts/content.ts')
             },

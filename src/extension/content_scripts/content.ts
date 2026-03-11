@@ -1,138 +1,134 @@
 // Dosya: src/extension/content_scripts/content.ts
-
-// Point arayüzünü core'dan alıyoruz (veya type olarak paylaşıyoruz)
-interface Point {
-    x: number;
-    y: number;
-}
+import { getDirections } from '../../core/domain/recognizer';
 
 class GestureTracker {
-    private isDrawing: boolean = false;
-    private points: Point[] = [];
-    private canvas: HTMLCanvasElement;
-    private ctx: CanvasRenderingContext2D | null;
-    private minDistanceThreshold: number = 10; // Piksel cinsinden, menüyü engellemek için minimum hareket
+    private isDrawing = false;
+    private hasMoved = false;
+    private isCancelled = false; // ESC ile iptal edildiğini takip eden bayrak
+    private points: { x: number, y: number }[] = [];
+    private overlay: HTMLDivElement;
 
     constructor() {
-        this.canvas = this.createOverlayCanvas();
-        this.ctx = this.canvas.getContext('2d');
+        this.overlay = this.createOverlay();
         this.bindEvents();
     }
 
-    private createOverlayCanvas(): HTMLCanvasElement {
-        const canvas = document.createElement('canvas');
-        canvas.id = 'projectmaker-gesture-canvas';
-        canvas.style.position = 'fixed';
-        canvas.style.top = '0';
-        canvas.style.left = '0';
-        canvas.style.width = '100vw';
-        canvas.style.height = '100vh';
-        canvas.style.pointerEvents = 'none'; // Tıklamaların alttaki elementlere geçmesine izin ver
-        canvas.style.zIndex = '2147483647'; // Maksimum z-index
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        // Sayfaya ekle
-        document.documentElement.appendChild(canvas);
-
-        // Yeniden boyutlandırma yönetimi
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
-
-        return canvas;
+    private createOverlay() {
+        const div = document.createElement('div');
+        div.id = 'gesturesfast-overlay';
+        div.style.cssText = `
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 6rem; font-weight: bold; color: #3b82f6; z-index: 2147483647;
+      pointer-events: none; text-shadow: 0px 10px 20px rgba(0,0,0,0.3);
+      background: rgba(255,255,255,0.9); padding: 10px 30px; border-radius: 20px;
+      display: none; gap: 10px; transition: none;
+    `;
+        document.documentElement.appendChild(div);
+        return div;
     }
 
     private bindEvents() {
-        document.addEventListener('mousedown', this.onMouseDown.bind(this));
-        document.addEventListener('mousemove', this.onMouseMove.bind(this));
-        document.addEventListener('mouseup', this.onMouseUp.bind(this));
-        document.addEventListener('contextmenu', this.onContextMenu.bind(this), { capture: true });
+        window.addEventListener('mousedown', this.onMouseDown.bind(this));
+        window.addEventListener('mousemove', this.onMouseMove.bind(this));
+        window.addEventListener('mouseup', this.onMouseUp.bind(this));
+
+        // ESC tuşunu yakalamak için klavye dinleyicisi
+        window.addEventListener('keydown', this.onKeyDown.bind(this));
     }
 
     private onMouseDown(e: MouseEvent) {
-        if (e.button !== 2) return; // Sadece sağ tık (button 2)
+        // 0: Sol Tık, 1: Orta Tık (Tekerlek), 2: Sağ Tık
+        if (e.button !== 1) return;
 
         this.isDrawing = true;
+        this.hasMoved = false;
+        this.isCancelled = false; // Yeni çizimde iptal bayrağını sıfırla
         this.points = [{ x: e.clientX, y: e.clientY }];
 
-        if (this.ctx) {
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            this.ctx.beginPath();
-            this.ctx.moveTo(e.clientX, e.clientY);
-            this.ctx.lineWidth = 4;
-            this.ctx.strokeStyle = '#3b82f6'; // Tailwind blue-500
-            this.ctx.lineCap = 'round';
-            this.ctx.lineJoin = 'round';
-            this.ctx.shadowBlur = 8;
-            this.ctx.shadowColor = 'rgba(59, 130, 246, 0.5)';
-        }
+        this.overlay.style.display = 'none';
+        this.overlay.innerText = '';
     }
 
     private onMouseMove(e: MouseEvent) {
-        if (!this.isDrawing) return;
+        // Çizim yapılmıyorsa veya ESC ile iptal edildiyse işlemi durdur
+        if (!this.isDrawing || this.isCancelled) return;
 
-        const newPoint = { x: e.clientX, y: e.clientY };
-        this.points.push(newPoint);
+        const startPt = this.points[0];
+        const dx = e.clientX - startPt.x;
+        const dy = e.clientY - startPt.y;
 
-        if (this.ctx) {
-            this.ctx.lineTo(newPoint.x, newPoint.y);
-            this.ctx.stroke();
+        if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
+            this.hasMoved = true;
+            // Orta tuşun "auto-scroll" (kaydırma okları) özelliğini engelle
+            e.preventDefault();
+        }
+
+        if (this.hasMoved) {
+            this.points.push({ x: e.clientX, y: e.clientY });
+            const sequence = getDirections(this.points);
+
+            if (sequence.length > 0) {
+                const arrows = sequence.split('').map(char => {
+                    if (char === 'U') return '⬆️';
+                    if (char === 'D') return '⬇️';
+                    if (char === 'L') return '⬅️';
+                    return '➡️';
+                }).join('');
+
+                this.overlay.innerText = arrows;
+                this.overlay.style.display = 'flex';
+            }
         }
     }
 
     private onMouseUp(e: MouseEvent) {
-        if (e.button !== 2 || !this.isDrawing) return;
+        if (e.button !== 1 || !this.isDrawing) return;
         this.isDrawing = false;
 
-        if (this.ctx) {
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        }
+        this.overlay.style.display = 'none';
+        this.overlay.innerText = '';
 
-        // Yeterince uzun bir çizim yapıldıysa (sadece sağ tık değilse)
-        if (this.isGesture(this.points)) {
-            this.sendGestureToBackground(this.points);
-        }
-    }
-
-    private onContextMenu(e: MouseEvent) {
-        // Eğer bir jest çizildiyse varsayılan sağ tık menüsünü engelle
-        if (this.isGesture(this.points)) {
-            e.preventDefault();
-            e.stopPropagation();
-            this.points = []; // Engelledikten sonra sıfırla
+        // Eğer sürüklendiyse VE iptal (ESC) edilmediyse komutu gönder
+        if (this.hasMoved && !this.isCancelled) {
+            const sequence = getDirections(this.points);
+            if (sequence) {
+                this.sendGesture(sequence);
+            }
         }
     }
 
-    private isGesture(points: Point[]): boolean {
-        if (points.length < 5) return false;
+    private onKeyDown(e: KeyboardEvent) {
+        // Fare basılıyken ESC tuşuna basılırsa
+        if (e.key === 'Escape' && this.isDrawing) {
+            this.isCancelled = true;
+            this.isDrawing = false;
 
-        // İlk ve son nokta arası veya toplam kat edilen mesafe kontrolü
-        // Basit bir bounding box hesabı ile gerçek bir hareket olup olmadığını anlıyoruz
-        const minX = Math.min(...points.map(p => p.x));
-        const maxX = Math.max(...points.map(p => p.x));
-        const minY = Math.min(...points.map(p => p.y));
-        const maxY = Math.max(...points.map(p => p.y));
-
-        const distanceX = maxX - minX;
-        const distanceY = maxY - minY;
-
-        return (distanceX > this.minDistanceThreshold || distanceY > this.minDistanceThreshold);
+            // Ekranda beliren okları anında sil
+            this.overlay.style.display = 'none';
+            this.overlay.innerText = '';
+            console.log("Jest iptal edildi.");
+        }
     }
 
-    private sendGestureToBackground(points: Point[]) {
-        // Chrome Extension API üzerinden yakalanan noktaları Service Worker'a gönderiyoruz
+    private sendGesture(sequence: string) {
         if (chrome && chrome.runtime) {
-            chrome.runtime.sendMessage({
-                type: 'PROCESS_GESTURE',
-                payload: { points }
-            });
-        } else {
-            console.warn("Chrome Runtime bulunamadı. (Geliştirme modu olabilir)", points.length, "nokta yakalandı.");
+            chrome.runtime.sendMessage({ type: 'PROCESS_GESTURE', payload: { sequence } });
         }
     }
 }
 
-// Sayfa yüklendiğinde başlat
+
+
 new GestureTracker();
+
+
+// Arka plandan gelen sayfa içi komutları dinle
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'PAGE_ACTION') {
+        if (message.action === 'ScrollTop') {
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Yumuşak kaydırma efekti ile en üste
+        } else if (message.action === 'ScrollBottom') {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); // En alta
+        }
+    }
+});
