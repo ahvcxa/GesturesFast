@@ -122,13 +122,70 @@ class GestureTracker {
 new GestureTracker();
 
 
-// Arka plandan gelen sayfa içi komutları dinle
+// --- ULTIMATE SMART SCROLL (SHADOW DOM DESTEKLİ) ---
+
+// Kök dizinden başlayarak tüm HTML'i ve gizli "Gölge (Shadow)" alanları tarayan fonksiyon
+function findDeepestScrollable(root: Document | ShadowRoot | Element): HTMLElement | null {
+    let bestContainer: HTMLElement | null = null;
+    let maxContentHeight = 0;
+
+    // Tüm elemanları (Gemini'nin özel etiketleri dahil) seç
+    const elements = root.querySelectorAll('*');
+
+    elements.forEach((el) => {
+        const htmlEl = el as HTMLElement;
+
+        // 1. Eleman kendi boyutundan daha fazla içeriğe sahip mi? (Taşma var mı?)
+        if (htmlEl.scrollHeight > htmlEl.clientHeight) {
+            const style = window.getComputedStyle(htmlEl);
+            // 2. CSS olarak kaydırmaya izin verilmiş mi? (overlay eski tarayıcılar içindir)
+            if (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflowY === 'overlay') {
+                // 3. İçeriği en uzun olan (örn: Gemini'deki bitmek bilmeyen sohbet geçmişi) kutuyu seç
+                if (htmlEl.scrollHeight > maxContentHeight) {
+                    maxContentHeight = htmlEl.scrollHeight;
+                    bestContainer = htmlEl;
+                }
+            }
+        }
+
+        // KRİTİK NOKTA: Eğer bu elemanın içinde gizli bir "Shadow DOM" varsa, onun da içine dal!
+        if (htmlEl.shadowRoot) {
+            const shadowBest = findDeepestScrollable(htmlEl.shadowRoot);
+            if (shadowBest && shadowBest.scrollHeight > maxContentHeight) {
+                maxContentHeight = shadowBest.scrollHeight;
+                bestContainer = shadowBest;
+            }
+        }
+    });
+
+    return bestContainer;
+}
+
+function smartScroll(direction: 'top' | 'bottom') {
+    // 1. Wikipedia gibi klasik siteler için ana pencereyi kaydır
+    window.scrollTo({
+        top: direction === 'bottom' ? document.body.scrollHeight : 0,
+        behavior: 'smooth'
+    });
+
+    // 2. Gemini, ChatGPT gibi modern SPA'lar için derin tarama yap
+    const targetContainer = findDeepestScrollable(document);
+
+    if (targetContainer) {
+        targetContainer.scrollTo({
+            top: direction === 'bottom' ? targetContainer.scrollHeight : 0,
+            behavior: 'smooth'
+        });
+    }
+}
+
+// Arka plandan gelen komutları dinle
 chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'PAGE_ACTION') {
         if (message.action === 'ScrollTop') {
-            window.scrollTo({ top: 0, behavior: 'smooth' }); // Yumuşak kaydırma efekti ile en üste
+            smartScroll('top');
         } else if (message.action === 'ScrollBottom') {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); // En alta
+            smartScroll('bottom');
         }
     }
 });
