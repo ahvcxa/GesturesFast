@@ -1,6 +1,6 @@
 // Dosya: src/extension/background/background.ts
 
-import { GestureRecognizer, Point } from '../../core/domain/recognizer';
+import { GestureRecognizer, Point } from '../../../core/domain/recognizer';
 
 // 1. Tanıma Motorunu Başlat
 const recognizer = new GestureRecognizer();
@@ -27,7 +27,7 @@ recognizer.addTemplate("Reload", [
 const MIN_MATCH_SCORE = 0.80; // %80 benzerlik eşiği
 
 // 3. Content Script'ten gelen mesajları dinle
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender) => {
     if (message.type === 'PROCESS_GESTURE' && message.payload.points) {
         const points: Point[] = message.payload.points;
 
