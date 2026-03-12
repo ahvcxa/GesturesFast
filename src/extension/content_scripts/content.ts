@@ -7,10 +7,25 @@ class GestureTracker {
     private isCancelled = false;
     private points: { x: number, y: number }[] = [];
     private overlay: HTMLDivElement;
+    private triggerButton = 1;       // 1 = Middle Click, 2 = Right Click
+    private lastRightClickTime = 0;  // For double right-click → context menu
 
     constructor() {
         this.overlay = this.createOverlay();
-        this.bindEvents();
+        // Load the user's preferred trigger button before binding events
+        chrome.storage.local.get(['triggerButton'], (result) => {
+            if (result.triggerButton !== undefined) {
+                this.triggerButton = result.triggerButton;
+            }
+            this.bindEvents();
+        });
+
+        // React to live settings changes (e.g. Options page open in another tab)
+        chrome.storage.onChanged.addListener((changes, area) => {
+            if (area === 'local' && changes.triggerButton) {
+                this.triggerButton = changes.triggerButton.newValue;
+            }
+        });
     }
 
     private createOverlay() {
@@ -64,14 +79,29 @@ class GestureTracker {
         window.addEventListener('mousemove', this.onMouseMove.bind(this));
         window.addEventListener('mouseup', this.onMouseUp.bind(this));
         window.addEventListener('keydown', this.onKeyDown.bind(this));
+        window.addEventListener('contextmenu', this.onContextMenu.bind(this));
     }
 
     private onMouseDown(e: MouseEvent) {
-        if (e.button !== 1) return;
+        if (e.button !== this.triggerButton) return;
 
-        this.isDrawing = true;
+        // Always clear movement state so contextmenu handler starts clean
         this.hasMoved = false;
         this.isCancelled = false;
+
+        if (this.triggerButton === 2) {
+            const now = Date.now();
+            if (now - this.lastRightClickTime < 500) {
+                // Double right-click detected: skip gesture mode so the
+                // contextmenu event is not suppressed and the native menu shows.
+                this.lastRightClickTime = 0; // reset so triple-click doesn't chain
+                this.isDrawing = false;
+                return;
+            }
+            this.lastRightClickTime = now;
+        }
+
+        this.isDrawing = true;
         this.points = [{ x: e.clientX, y: e.clientY }];
 
         this.overlay.style.display = 'none';
@@ -109,7 +139,7 @@ class GestureTracker {
     }
 
     private onMouseUp(e: MouseEvent) {
-        if (e.button !== 1 || !this.isDrawing) return;
+        if (e.button !== this.triggerButton || !this.isDrawing) return;
         this.isDrawing = false;
 
         this.overlay.style.display = 'none';
@@ -129,6 +159,18 @@ class GestureTracker {
             this.isDrawing = false;
             this.overlay.style.display = 'none';
             this.overlay.innerText = '';
+        }
+    }
+
+    private onContextMenu(e: MouseEvent) {
+        if (this.triggerButton !== 2) return;
+        // On Linux, contextmenu fires on mousedown (before any mousemove can set hasMoved).
+        // isDrawing is true at that exact moment, so we suppress immediately.
+        // On Windows/macOS, contextmenu fires after mouseup (isDrawing is already false),
+        // so we fall back to checking hasMoved.
+        // Plain right-click (no drag): mouseup fires first → isDrawing=false, hasMoved=false → menu allowed.
+        if (this.isDrawing || this.hasMoved) {
+            e.preventDefault();
         }
     }
 
