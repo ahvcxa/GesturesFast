@@ -1,16 +1,16 @@
-// Dosya: src/extension/ui/Options.tsx
+// src/extension/ui/Options.tsx
 import React, { useState, useEffect } from 'react';
 
 const AVAILABLE_ACTIONS = [
-    { id: 'CloseTab', label: 'Sekmeyi Kapat' },
-    { id: 'GoBack', label: 'Geri Git' },
-    { id: 'GoForward', label: 'İleri Git' },
-    { id: 'Reload', label: 'Sayfayı Yenile' },
-    { id: 'ReopenTab', label: 'Son Kapanan Sekmeyi Aç' },
-    { id: 'ScrollTop', label: 'Sayfanın En Üstüne Çık' },
-    { id: 'ScrollBottom', label: 'Sayfanın En Altına İn' },
-    { id: 'ScrollUp', label: 'Yukarı Kaydır (Biraz)' },
-    { id: 'ScrollDown', label: 'Aşağı Kaydır (Biraz)' }
+    { id: 'CloseTab',    label: 'Close Tab' },
+    { id: 'GoBack',      label: 'Go Back' },
+    { id: 'GoForward',   label: 'Go Forward' },
+    { id: 'Reload',      label: 'Reload Page' },
+    { id: 'ReopenTab',   label: 'Reopen Last Closed Tab' },
+    { id: 'ScrollTop',   label: 'Scroll to Top' },
+    { id: 'ScrollBottom',label: 'Scroll to Bottom' },
+    { id: 'ScrollUp',    label: 'Scroll Up' },
+    { id: 'ScrollDown',  label: 'Scroll Down' },
 ];
 export const Options: React.FC = () => {
     const [savedGestures, setSavedGestures] = useState<Record<string, string>>({});
@@ -113,12 +113,12 @@ export const Options: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 
-                {/* Sol Panel */}
+                {/* Left Panel */}
                 <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-6">Yeni Kombinasyon</h2>
+                    <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-6">New Gesture</h2>
 
                     <div className="mb-8 bg-gray-50/50 h-28 rounded-xl flex items-center justify-center text-4xl text-gray-700 tracking-[0.2em] border border-gray-100">
-                        {currentSequence ? renderArrows(currentSequence) : <span className="text-gray-300 text-sm tracking-normal">Yön tuşlarına tıklayın</span>}
+                        {currentSequence ? renderArrows(currentSequence) : <span className="text-gray-300 text-sm tracking-normal">Click the direction buttons</span>}
                     </div>
 
                     <div className="grid grid-cols-3 gap-3 w-48 mx-auto mb-8">
@@ -131,7 +131,7 @@ export const Options: React.FC = () => {
                     </div>
 
                     <div className="flex gap-3 mb-6">
-                        <button onClick={() => setCurrentSequence('')} className="flex-1 bg-gray-50 text-gray-500 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">Temizle</button>
+                        <button onClick={() => setCurrentSequence('')} className="flex-1 bg-gray-50 text-gray-500 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">Clear</button>
                     </div>
 
                     <div className="mb-6">
@@ -145,13 +145,13 @@ export const Options: React.FC = () => {
                     </div>
 
                     <button onClick={saveGesture} className="w-full bg-blue-600 text-white font-medium py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-                        Kombinasyonu Kaydet
+                        Save Gesture
                     </button>
                 </div>
 
-                {/* Sağ Panel */}
+                {/* Right Panel */}
                 <div>
-                    <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-6">Kayıtlı Hareketler</h2>
+                    <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-6">Saved Gestures</h2>
                     <ul className="space-y-3">
                         {Object.entries(savedGestures).map(([seq, actionId]) => (
                             <li key={seq} className="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm flex justify-between items-center group transition-all hover:border-gray-200">
@@ -165,7 +165,7 @@ export const Options: React.FC = () => {
                                     onClick={() => deleteGesture(seq)}
                                     className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2"
                                 >
-                                    Sil
+                                    Delete
                                 </button>
                             </li>
                         ))}

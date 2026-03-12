@@ -1,4 +1,4 @@
-// Dosya: src/extension/content_scripts/content.ts
+// src/extension/content_scripts/content.ts
 import { getDirections } from '../../core/domain/recognizer';
 
 class GestureTracker {
@@ -29,21 +29,21 @@ class GestureTracker {
     }
 
     private createOverlay() {
-        // 1. İzole Taşıyıcı (Host) oluştur
+        // 1. Create an isolated host element
         const host = document.createElement('div');
         host.id = 'gesturesfast-host';
-        // Host'un kendisi tıklamaları engellememeli ve en üstte görünmez bir katman olmalı
+        // The host itself must not block clicks and should be an invisible top-level layer
         host.style.cssText = 'position: fixed; z-index: 2147483647; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;';
         document.documentElement.appendChild(host);
 
-        // 2. Gölge Alanı (Shadow Root) yarat - 'closed' modu dışarıdan JS müdahalesini de engeller
+        // 2. Create a Shadow Root — 'closed' mode also blocks external JS access
         const shadow = host.attachShadow({ mode: 'closed' });
 
-        // 3. Stilleri Sıfırla ve Özel Tasarımı Ekle
+        // 3. Reset styles and apply custom design
         const style = document.createElement('style');
         style.textContent = `
       .overlay {
-        all: initial; /* SİHİRLİ SATIR: Sitenin tüm CSS'ini reddeder! */
+        all: initial; /* Rejects all CSS from the host page */
         position: fixed; 
         top: 50%; 
         left: 50%; 
@@ -64,7 +64,7 @@ class GestureTracker {
       }
     `;
 
-        // 4. Asıl Ok Kutusu
+        // 4. The arrow display box
         const div = document.createElement('div');
         div.className = 'overlay';
 
@@ -188,7 +188,7 @@ class GestureTracker {
 new GestureTracker();
 
 
-// --- BAĞLAMA DUYARLI (CONTEXT-AWARE) KAYDIRMA MOTORU ---
+// --- CONTEXT-AWARE SMART SCROLL ENGINE ---
 function getDeepElementFromPoint(x: number, y: number): Element | null {
     let el = document.elementFromPoint(x, y);
     while (el && el.shadowRoot) {
@@ -229,23 +229,23 @@ function getScrollableParent(element: Element | null): HTMLElement | null {
     return (document.scrollingElement as HTMLElement) || document.body;
 }
 
-// Dosya: src/extension/content_scripts/content.ts (Dosyanın en alt kısmı)
+// src/extension/content_scripts/content.ts (bottom of file)
 
 function smartScroll(direction: 'top' | 'bottom' | 'up' | 'down', x: number, y: number) {
     const targetElement = getDeepElementFromPoint(x, y);
     const scrollContainer = getScrollableParent(targetElement);
 
     if (scrollContainer) {
-        // 1. En Üste veya En Alta Kesin Sıçrama (Mutlak Konum)
+        // 1. Jump to absolute top or bottom
         if (direction === 'top' || direction === 'bottom') {
             scrollContainer.scrollTo({
                 top: direction === 'bottom' ? scrollContainer.scrollHeight : 0,
                 behavior: 'smooth'
             });
         }
-        // 2. Kademeli Kaydırma (Göreli Konum)
+        // 2. Incremental scroll (relative position)
         else if (direction === 'up' || direction === 'down') {
-            // Ekranın yarısı kadar kaydır (Kullanıcı okuduğu yeri kaybetmesin)
+            // Scroll by roughly one viewport height so the user doesn't lose their reading position
             const scrollAmount = window.innerHeight - 100;
             scrollContainer.scrollBy({
                 top: direction === 'down' ? scrollAmount : -scrollAmount,
