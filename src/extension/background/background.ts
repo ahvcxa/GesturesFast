@@ -1,4 +1,4 @@
-// Dosya: src/extension/background/background.ts
+// Dosya: src/extension/background/background.ts (İlgili kısım)
 
 let userGestures: Record<string, string> = {};
 
@@ -6,7 +6,8 @@ chrome.storage.local.get(['customGestures'], (result) => {
     if (result.customGestures) {
         userGestures = result.customGestures;
     } else {
-        userGestures = { "DR": "CloseTab", "L": "GoBack", "R": "GoForward", "UD": "Reload", "U": "ScrollTop", "D": "ScrollBottom" };
+        // Eskiden burada varsayılanlar vardı, artık tertemiz bir obje atıyoruz
+        userGestures = {};
     }
 });
 

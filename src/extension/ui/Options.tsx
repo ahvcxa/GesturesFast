@@ -17,13 +17,14 @@ export const Options: React.FC = () => {
     const [currentSequence, setCurrentSequence] = useState<string>('');
     const [selectedAction, setSelectedAction] = useState('CloseTab');
 
+
     useEffect(() => {
         chrome.storage.local.get(['customGestures'], (result) => {
             if (result.customGestures) {
                 setSavedGestures(result.customGestures);
             } else {
-                const defaults = { "DR": "CloseTab", "L": "GoBack", "R": "GoForward", "UD": "Reload" };
-                setSavedGestures(defaults);
+                // Eskiden burada 'defaults' listesi vardı, artık boş başlatıyoruz
+                setSavedGestures({});
             }
         });
     }, []);
