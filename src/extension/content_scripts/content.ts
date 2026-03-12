@@ -14,16 +14,48 @@ class GestureTracker {
     }
 
     private createOverlay() {
-        const div = document.createElement('div');
-        div.id = 'gesturesfast-overlay';
-        div.style.cssText = `
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      font-size: 6rem; font-weight: bold; color: #3b82f6; z-index: 2147483647;
-      pointer-events: none; text-shadow: 0px 10px 20px rgba(0,0,0,0.3);
-      background: rgba(255,255,255,0.9); padding: 10px 30px; border-radius: 20px;
-      display: none; gap: 10px; transition: none;
+        // 1. İzole Taşıyıcı (Host) oluştur
+        const host = document.createElement('div');
+        host.id = 'gesturesfast-host';
+        // Host'un kendisi tıklamaları engellememeli ve en üstte görünmez bir katman olmalı
+        host.style.cssText = 'position: fixed; z-index: 2147483647; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;';
+        document.documentElement.appendChild(host);
+
+        // 2. Gölge Alanı (Shadow Root) yarat - 'closed' modu dışarıdan JS müdahalesini de engeller
+        const shadow = host.attachShadow({ mode: 'closed' });
+
+        // 3. Stilleri Sıfırla ve Özel Tasarımı Ekle
+        const style = document.createElement('style');
+        style.textContent = `
+      .overlay {
+        all: initial; /* SİHİRLİ SATIR: Sitenin tüm CSS'ini reddeder! */
+        position: fixed; 
+        top: 50%; 
+        left: 50%; 
+        transform: translate(-50%, -50%);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: 6rem; 
+        font-weight: bold; 
+        color: #3b82f6; 
+        text-shadow: 0px 10px 20px rgba(0,0,0,0.3);
+        background: rgba(255,255,255,0.9); 
+        padding: 10px 30px; 
+        border-radius: 20px;
+        display: none; 
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
     `;
-        document.documentElement.appendChild(div);
+
+        // 4. Asıl Ok Kutusu
+        const div = document.createElement('div');
+        div.className = 'overlay';
+
+        shadow.appendChild(style);
+        shadow.appendChild(div);
+
         return div;
     }
 
@@ -102,7 +134,6 @@ class GestureTracker {
 
     private sendGesture(sequence: string) {
         if (chrome && chrome.runtime) {
-            // KRİTİK DEĞİŞİKLİK: Jesti başlattığımız ilk noktanın (x, y) koordinatlarını gönderiyoruz
             const startPoint = this.points[0];
             chrome.runtime.sendMessage({
                 type: 'PROCESS_GESTURE',
@@ -116,8 +147,6 @@ new GestureTracker();
 
 
 // --- BAĞLAMA DUYARLI (CONTEXT-AWARE) KAYDIRMA MOTORU ---
-
-// Farenin altındaki en derin elementi (Shadow DOM içindekiler dahil) bulan fonksiyon
 function getDeepElementFromPoint(x: number, y: number): Element | null {
     let el = document.elementFromPoint(x, y);
     while (el && el.shadowRoot) {
@@ -128,12 +157,10 @@ function getDeepElementFromPoint(x: number, y: number): Element | null {
     return el;
 }
 
-// Elementten başlayarak DOM ağacında yukarı tırmanıp ilk "kaydırılabilir" ebeveyni bulan fonksiyon
 function getScrollableParent(element: Element | null): HTMLElement | null {
     let current = element;
 
     while (current) {
-        // Eğer en tepeye ulaştıysak ana sayfayı döndür
         if (current === document.body || current === document.documentElement) {
             return (document.scrollingElement as HTMLElement) || document.body;
         }
@@ -142,15 +169,12 @@ function getScrollableParent(element: Element | null): HTMLElement | null {
         const style = window.getComputedStyle(htmlEl);
         const overflowY = style.overflowY;
 
-        // Elementin CSS'i kaydırmaya izin veriyor mu?
         const isScrollableCSS = (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay');
 
-        // İçerik elementin kendi boyundan uzun mu? (Gerçekten kaydırılacak bir şey var mı?)
         if (isScrollableCSS && htmlEl.scrollHeight > htmlEl.clientHeight) {
             return htmlEl;
         }
 
-        // Bulamadıysak bir üst ebeveyne (parent) geç. Shadow DOM'daysak Gölge Sahibine (host) atla.
         if (current.parentElement) {
             current = current.parentElement;
         } else if (current.getRootNode() instanceof ShadowRoot) {
@@ -160,18 +184,13 @@ function getScrollableParent(element: Element | null): HTMLElement | null {
         }
     }
 
-    // Hiçbir şey bulamazsa varsayılan olarak ana sayfayı kaydır
     return (document.scrollingElement as HTMLElement) || document.body;
 }
 
 function smartScroll(direction: 'top' | 'bottom', x: number, y: number) {
-    // 1. Farenin altındaki spesifik elementi bul
     const targetElement = getDeepElementFromPoint(x, y);
-
-    // 2. O elementin içinde bulunduğu kaydırılabilir kutuyu (veya ana sayfayı) bul
     const scrollContainer = getScrollableParent(targetElement);
 
-    // 3. Bulunan spesifik alanı kaydır
     if (scrollContainer) {
         scrollContainer.scrollTo({
             top: direction === 'bottom' ? scrollContainer.scrollHeight : 0,
@@ -180,7 +199,6 @@ function smartScroll(direction: 'top' | 'bottom', x: number, y: number) {
     }
 }
 
-// Arka plandan gelen koordinatlı sayfa içi komutları dinle
 chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'PAGE_ACTION') {
         if (message.action === 'ScrollTop') {
