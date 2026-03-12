@@ -8,7 +8,9 @@ const AVAILABLE_ACTIONS = [
     { id: 'Reload', label: 'Sayfayı Yenile' },
     { id: 'ReopenTab', label: 'Son Kapanan Sekmeyi Aç' },
     { id: 'ScrollTop', label: 'Sayfanın En Üstüne Çık' },
-    { id: 'ScrollBottom', label: 'Sayfanın En Altına İn' }
+    { id: 'ScrollBottom', label: 'Sayfanın En Altına İn' },
+    { id: 'ScrollUp', label: 'Yukarı Kaydır (Biraz)' },
+    { id: 'ScrollDown', label: 'Aşağı Kaydır (Biraz)' }
 ];
 export const Options: React.FC = () => {
     const [savedGestures, setSavedGestures] = useState<Record<string, string>>({});

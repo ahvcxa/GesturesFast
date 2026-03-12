@@ -31,6 +31,8 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 });
 
 // Fonksiyona x ve y parametreleri eklendi
+// Dosya: src/extension/background/background.ts (Sadece executeAction içindeki switch bloğu)
+
 function executeAction(actionName: string, tabId?: number, x?: number, y?: number) {
     switch (actionName) {
         case "CloseTab":
@@ -50,6 +52,8 @@ function executeAction(actionName: string, tabId?: number, x?: number, y?: numbe
             break;
         case "ScrollTop":
         case "ScrollBottom":
+        case "ScrollUp":       // <-- YENİ
+        case "ScrollDown":     // <-- YENİ
             // X ve Y'yi sayfaya geri yolla
             if (tabId && x !== undefined && y !== undefined) {
                 chrome.tabs.sendMessage(tabId, { type: 'PAGE_ACTION', action: actionName, x, y }).catch(() => { });

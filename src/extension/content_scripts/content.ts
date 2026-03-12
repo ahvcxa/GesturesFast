@@ -187,15 +187,29 @@ function getScrollableParent(element: Element | null): HTMLElement | null {
     return (document.scrollingElement as HTMLElement) || document.body;
 }
 
-function smartScroll(direction: 'top' | 'bottom', x: number, y: number) {
+// Dosya: src/extension/content_scripts/content.ts (Dosyanın en alt kısmı)
+
+function smartScroll(direction: 'top' | 'bottom' | 'up' | 'down', x: number, y: number) {
     const targetElement = getDeepElementFromPoint(x, y);
     const scrollContainer = getScrollableParent(targetElement);
 
     if (scrollContainer) {
-        scrollContainer.scrollTo({
-            top: direction === 'bottom' ? scrollContainer.scrollHeight : 0,
-            behavior: 'smooth'
-        });
+        // 1. En Üste veya En Alta Kesin Sıçrama (Mutlak Konum)
+        if (direction === 'top' || direction === 'bottom') {
+            scrollContainer.scrollTo({
+                top: direction === 'bottom' ? scrollContainer.scrollHeight : 0,
+                behavior: 'smooth'
+            });
+        }
+        // 2. Kademeli Kaydırma (Göreli Konum)
+        else if (direction === 'up' || direction === 'down') {
+            // Ekranın yarısı kadar kaydır (Kullanıcı okuduğu yeri kaybetmesin)
+            const scrollAmount = window.innerHeight - 100;
+            scrollContainer.scrollBy({
+                top: direction === 'down' ? scrollAmount : -scrollAmount,
+                behavior: 'smooth'
+            });
+        }
     }
 }
 
@@ -205,6 +219,10 @@ chrome.runtime.onMessage.addListener((message) => {
             smartScroll('top', message.x, message.y);
         } else if (message.action === 'ScrollBottom') {
             smartScroll('bottom', message.x, message.y);
+        } else if (message.action === 'ScrollUp') {
+            smartScroll('up', message.x, message.y);
+        } else if (message.action === 'ScrollDown') {
+            smartScroll('down', message.x, message.y);
         }
     }
 });
