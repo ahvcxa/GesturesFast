@@ -4,7 +4,7 @@ import { getDirections } from '../../core/domain/recognizer';
 class GestureTracker {
     private isDrawing = false;
     private hasMoved = false;
-    private isCancelled = false; // ESC ile iptal edildiğini takip eden bayrak
+    private isCancelled = false;
     private points: { x: number, y: number }[] = [];
     private overlay: HTMLDivElement;
 
@@ -31,18 +31,15 @@ class GestureTracker {
         window.addEventListener('mousedown', this.onMouseDown.bind(this));
         window.addEventListener('mousemove', this.onMouseMove.bind(this));
         window.addEventListener('mouseup', this.onMouseUp.bind(this));
-
-        // ESC tuşunu yakalamak için klavye dinleyicisi
         window.addEventListener('keydown', this.onKeyDown.bind(this));
     }
 
     private onMouseDown(e: MouseEvent) {
-        // 0: Sol Tık, 1: Orta Tık (Tekerlek), 2: Sağ Tık
         if (e.button !== 1) return;
 
         this.isDrawing = true;
         this.hasMoved = false;
-        this.isCancelled = false; // Yeni çizimde iptal bayrağını sıfırla
+        this.isCancelled = false;
         this.points = [{ x: e.clientX, y: e.clientY }];
 
         this.overlay.style.display = 'none';
@@ -50,7 +47,6 @@ class GestureTracker {
     }
 
     private onMouseMove(e: MouseEvent) {
-        // Çizim yapılmıyorsa veya ESC ile iptal edildiyse işlemi durdur
         if (!this.isDrawing || this.isCancelled) return;
 
         const startPt = this.points[0];
@@ -59,7 +55,6 @@ class GestureTracker {
 
         if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
             this.hasMoved = true;
-            // Orta tuşun "auto-scroll" (kaydırma okları) özelliğini engelle
             e.preventDefault();
         }
 
@@ -69,10 +64,10 @@ class GestureTracker {
 
             if (sequence.length > 0) {
                 const arrows = sequence.split('').map(char => {
-                    if (char === 'U') return '⬆️';
-                    if (char === 'D') return '⬇️';
-                    if (char === 'L') return '⬅️';
-                    return '➡️';
+                    if (char === 'U') return '↑';
+                    if (char === 'D') return '↓';
+                    if (char === 'L') return '←';
+                    return '→';
                 }).join('');
 
                 this.overlay.innerText = arrows;
@@ -88,7 +83,6 @@ class GestureTracker {
         this.overlay.style.display = 'none';
         this.overlay.innerText = '';
 
-        // Eğer sürüklendiyse VE iptal (ESC) edilmediyse komutu gönder
         if (this.hasMoved && !this.isCancelled) {
             const sequence = getDirections(this.points);
             if (sequence) {
@@ -98,94 +92,101 @@ class GestureTracker {
     }
 
     private onKeyDown(e: KeyboardEvent) {
-        // Fare basılıyken ESC tuşuna basılırsa
         if (e.key === 'Escape' && this.isDrawing) {
             this.isCancelled = true;
             this.isDrawing = false;
-
-            // Ekranda beliren okları anında sil
             this.overlay.style.display = 'none';
             this.overlay.innerText = '';
-            console.log("Jest iptal edildi.");
         }
     }
 
     private sendGesture(sequence: string) {
         if (chrome && chrome.runtime) {
-            chrome.runtime.sendMessage({ type: 'PROCESS_GESTURE', payload: { sequence } });
+            // KRİTİK DEĞİŞİKLİK: Jesti başlattığımız ilk noktanın (x, y) koordinatlarını gönderiyoruz
+            const startPoint = this.points[0];
+            chrome.runtime.sendMessage({
+                type: 'PROCESS_GESTURE',
+                payload: { sequence, x: startPoint.x, y: startPoint.y }
+            });
         }
     }
 }
 
-
-
 new GestureTracker();
 
 
-// --- ULTIMATE SMART SCROLL (SHADOW DOM DESTEKLİ) ---
+// --- BAĞLAMA DUYARLI (CONTEXT-AWARE) KAYDIRMA MOTORU ---
 
-// Kök dizinden başlayarak tüm HTML'i ve gizli "Gölge (Shadow)" alanları tarayan fonksiyon
-function findDeepestScrollable(root: Document | ShadowRoot | Element): HTMLElement | null {
-    let bestContainer: HTMLElement | null = null;
-    let maxContentHeight = 0;
-
-    // Tüm elemanları (Gemini'nin özel etiketleri dahil) seç
-    const elements = root.querySelectorAll('*');
-
-    elements.forEach((el) => {
-        const htmlEl = el as HTMLElement;
-
-        // 1. Eleman kendi boyutundan daha fazla içeriğe sahip mi? (Taşma var mı?)
-        if (htmlEl.scrollHeight > htmlEl.clientHeight) {
-            const style = window.getComputedStyle(htmlEl);
-            // 2. CSS olarak kaydırmaya izin verilmiş mi? (overlay eski tarayıcılar içindir)
-            if (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflowY === 'overlay') {
-                // 3. İçeriği en uzun olan (örn: Gemini'deki bitmek bilmeyen sohbet geçmişi) kutuyu seç
-                if (htmlEl.scrollHeight > maxContentHeight) {
-                    maxContentHeight = htmlEl.scrollHeight;
-                    bestContainer = htmlEl;
-                }
-            }
-        }
-
-        // KRİTİK NOKTA: Eğer bu elemanın içinde gizli bir "Shadow DOM" varsa, onun da içine dal!
-        if (htmlEl.shadowRoot) {
-            const shadowBest = findDeepestScrollable(htmlEl.shadowRoot);
-            if (shadowBest && shadowBest.scrollHeight > maxContentHeight) {
-                maxContentHeight = shadowBest.scrollHeight;
-                bestContainer = shadowBest;
-            }
-        }
-    });
-
-    return bestContainer;
+// Farenin altındaki en derin elementi (Shadow DOM içindekiler dahil) bulan fonksiyon
+function getDeepElementFromPoint(x: number, y: number): Element | null {
+    let el = document.elementFromPoint(x, y);
+    while (el && el.shadowRoot) {
+        const shadowEl = el.shadowRoot.elementFromPoint(x, y);
+        if (!shadowEl || shadowEl === el) break;
+        el = shadowEl;
+    }
+    return el;
 }
 
-function smartScroll(direction: 'top' | 'bottom') {
-    // 1. Wikipedia gibi klasik siteler için ana pencereyi kaydır
-    window.scrollTo({
-        top: direction === 'bottom' ? document.body.scrollHeight : 0,
-        behavior: 'smooth'
-    });
+// Elementten başlayarak DOM ağacında yukarı tırmanıp ilk "kaydırılabilir" ebeveyni bulan fonksiyon
+function getScrollableParent(element: Element | null): HTMLElement | null {
+    let current = element;
 
-    // 2. Gemini, ChatGPT gibi modern SPA'lar için derin tarama yap
-    const targetContainer = findDeepestScrollable(document);
+    while (current) {
+        // Eğer en tepeye ulaştıysak ana sayfayı döndür
+        if (current === document.body || current === document.documentElement) {
+            return (document.scrollingElement as HTMLElement) || document.body;
+        }
 
-    if (targetContainer) {
-        targetContainer.scrollTo({
-            top: direction === 'bottom' ? targetContainer.scrollHeight : 0,
+        const htmlEl = current as HTMLElement;
+        const style = window.getComputedStyle(htmlEl);
+        const overflowY = style.overflowY;
+
+        // Elementin CSS'i kaydırmaya izin veriyor mu?
+        const isScrollableCSS = (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay');
+
+        // İçerik elementin kendi boyundan uzun mu? (Gerçekten kaydırılacak bir şey var mı?)
+        if (isScrollableCSS && htmlEl.scrollHeight > htmlEl.clientHeight) {
+            return htmlEl;
+        }
+
+        // Bulamadıysak bir üst ebeveyne (parent) geç. Shadow DOM'daysak Gölge Sahibine (host) atla.
+        if (current.parentElement) {
+            current = current.parentElement;
+        } else if (current.getRootNode() instanceof ShadowRoot) {
+            current = (current.getRootNode() as ShadowRoot).host;
+        } else {
+            current = null;
+        }
+    }
+
+    // Hiçbir şey bulamazsa varsayılan olarak ana sayfayı kaydır
+    return (document.scrollingElement as HTMLElement) || document.body;
+}
+
+function smartScroll(direction: 'top' | 'bottom', x: number, y: number) {
+    // 1. Farenin altındaki spesifik elementi bul
+    const targetElement = getDeepElementFromPoint(x, y);
+
+    // 2. O elementin içinde bulunduğu kaydırılabilir kutuyu (veya ana sayfayı) bul
+    const scrollContainer = getScrollableParent(targetElement);
+
+    // 3. Bulunan spesifik alanı kaydır
+    if (scrollContainer) {
+        scrollContainer.scrollTo({
+            top: direction === 'bottom' ? scrollContainer.scrollHeight : 0,
             behavior: 'smooth'
         });
     }
 }
 
-// Arka plandan gelen komutları dinle
+// Arka plandan gelen koordinatlı sayfa içi komutları dinle
 chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'PAGE_ACTION') {
         if (message.action === 'ScrollTop') {
-            smartScroll('top');
+            smartScroll('top', message.x, message.y);
         } else if (message.action === 'ScrollBottom') {
-            smartScroll('bottom');
+            smartScroll('bottom', message.x, message.y);
         }
     }
 });

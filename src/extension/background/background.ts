@@ -6,7 +6,6 @@ chrome.storage.local.get(['customGestures'], (result) => {
     if (result.customGestures) {
         userGestures = result.customGestures;
     } else {
-        // Varsayılanlara yeni aksiyonları da örnek olarak ekleyebiliriz
         userGestures = { "DR": "CloseTab", "L": "GoBack", "R": "GoForward", "UD": "Reload", "U": "ScrollTop", "D": "ScrollBottom" };
     }
 });
@@ -17,16 +16,22 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     }
 });
 
+chrome.action.onClicked.addListener(() => {
+    chrome.tabs.create({ url: 'options.html' });
+});
+
 chrome.runtime.onMessage.addListener((message, sender) => {
     if (message.type === 'PROCESS_GESTURE' && message.payload.sequence) {
         const actionName = userGestures[message.payload.sequence];
         if (actionName) {
-            executeAction(actionName, sender.tab?.id);
+            // Artık X ve Y koordinatlarını da fonksiyona iletiyoruz
+            executeAction(actionName, sender.tab?.id, message.payload.x, message.payload.y);
         }
     }
 });
 
-function executeAction(actionName: string, tabId?: number) {
+// Fonksiyona x ve y parametreleri eklendi
+function executeAction(actionName: string, tabId?: number, x?: number, y?: number) {
     switch (actionName) {
         case "CloseTab":
             if (tabId) chrome.tabs.remove(tabId);
@@ -41,20 +46,14 @@ function executeAction(actionName: string, tabId?: number) {
             if (tabId) chrome.tabs.reload(tabId);
             break;
         case "ReopenTab":
-            // Son kapanan sekmeyi veya pencereyi geri yükler
             chrome.sessions.restore();
             break;
         case "ScrollTop":
         case "ScrollBottom":
-            // Bu komutları sayfaya (content script'e) iletiyoruz
-            if (tabId) {
-                chrome.tabs.sendMessage(tabId, { type: 'PAGE_ACTION', action: actionName }).catch(() => { });
+            // X ve Y'yi sayfaya geri yolla
+            if (tabId && x !== undefined && y !== undefined) {
+                chrome.tabs.sendMessage(tabId, { type: 'PAGE_ACTION', action: actionName, x, y }).catch(() => { });
             }
             break;
     }
 }
-
-// Eklenti ikonuna tıklandığında ayarlar sayfasını yeni bir sekmede tam ekran aç
-chrome.action.onClicked.addListener(() => {
-    chrome.tabs.create({ url: 'options.html' });
-});
