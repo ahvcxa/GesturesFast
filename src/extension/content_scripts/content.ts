@@ -281,7 +281,7 @@ function smartScroll(direction: 'top' | 'bottom' | 'up' | 'down', x: number, y: 
         // 2. Incremental scroll (relative position)
         else if (direction === 'up' || direction === 'down') {
             // Scroll by roughly one viewport height so the user doesn't lose their reading position
-            const scrollAmount = window.innerHeight - 100;
+            const scrollAmount = 1200;
             scrollContainer.scrollBy({
                 top: direction === 'down' ? scrollAmount : -scrollAmount,
                 behavior: 'smooth'
