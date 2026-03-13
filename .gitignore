@@ -1,24 +1,27 @@
-# Bağımlılıklar
+# Dependencies
 node_modules/
 .pnp
 .pnp.js
 
-# Derleme Çıktıları
+# Build Outputs
 dist/
 build/
 
-# Ortam Değişkenleri (Gizli anahtarlar vb.)
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Environment Variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Sistem Dosyaları
+# System Files
 .DS_Store
 Thumbs.db
 
-# Loglar
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

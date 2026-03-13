@@ -1,12 +1,13 @@
-// Dosya: src/core/domain/recognizer.ts
+// src/core/domain/recognizer.ts
 
-export type Direction = 'U' | 'D' | 'L' | 'R';
+// Internal type — not exported as it is only used within this file.
+type Direction = 'U' | 'D' | 'L' | 'R';
 
-// Noktaları alır ve "RU" (Right -> Up) gibi bir string döndürür.
+// Takes an array of points and returns a direction string, e.g. "RU" (Right → Up).
 export function getDirections(points: { x: number, y: number }[]): string {
     if (points.length < 2) return '';
 
-    const MIN_DISTANCE = 20; // Yönün algılanması için farenin gitmesi gereken minimum piksel
+    const MIN_DISTANCE = 20; // Minimum pixels the mouse must travel before a direction is registered
     let sequence: Direction[] = [];
     let lastPoint = points[0];
 
@@ -16,25 +17,25 @@ export function getDirections(points: { x: number, y: number }[]): string {
         const dy = pt.y - lastPoint.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Eğer fare yeterince hareket ettiyse yönü hesapla
+        // Only register a direction if the mouse has moved far enough
         if (dist > MIN_DISTANCE) {
             let dir: Direction;
-            // X ekseninde mi yoksa Y ekseninde mi daha çok hareket etti?
+            // Determine dominant axis: horizontal or vertical
             if (Math.abs(dx) > Math.abs(dy)) {
-                dir = dx > 0 ? 'R' : 'L'; // Sağ veya Sol
+                dir = dx > 0 ? 'R' : 'L'; // Right or Left
             } else {
-                dir = dy > 0 ? 'D' : 'U'; // Aşağı veya Yukarı
+                dir = dy > 0 ? 'D' : 'U'; // Down or Up
             }
 
-            // Eğer dizi boşsa veya son eklenen yön yeni yönden farklıysa ekle
+            // Only append if the sequence is empty or the direction has changed
             if (sequence.length === 0 || sequence[sequence.length - 1] !== dir) {
                 sequence.push(dir);
             }
 
-            // Yeni referans noktamızı güncelle
+            // Advance the reference point
             lastPoint = pt;
         }
     }
 
-    return sequence.join(''); // Örn: "R", "RU", "LDR"
+    return sequence.join(''); // e.g. "R", "RU", "LDR"
 }
