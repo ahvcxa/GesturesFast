@@ -18,9 +18,11 @@ export const Options: React.FC = () => {
     const [selectedAction, setSelectedAction] = useState('CloseTab');
     const [triggerButton, setTriggerButton] = useState<number>(1); // 1 = Middle, 2 = Right
     const [showOverlay, setShowOverlay] = useState<boolean>(true);
+    const [arrowColor, setArrowColor] = useState<string>('#ffffff');
+    const [overlayBgColor, setOverlayBgColor] = useState<string>('#000000');
 
     useEffect(() => {
-        chrome.storage.local.get(['customGestures', 'triggerButton'], (result) => {
+        chrome.storage.local.get(['customGestures', 'triggerButton', 'arrowColor', 'overlayBgColor'], (result) => {
             if (result.customGestures) {
                 setSavedGestures(result.customGestures);
             } else {
@@ -28,6 +30,12 @@ export const Options: React.FC = () => {
             }
             if (result.triggerButton !== undefined) {
                 setTriggerButton(result.triggerButton);
+            }
+            if (result.arrowColor !== undefined) {
+                setArrowColor(result.arrowColor);
+            }
+            if (result.overlayBgColor !== undefined) {
+                setOverlayBgColor(result.overlayBgColor);
             }
         });
     }, []);
@@ -127,6 +135,44 @@ export const Options: React.FC = () => {
                         <p className="text-xs text-gray-400">If disabled, mouse gestures will execute silently in the background without displaying arrows on the screen.</p>
                     </div>
                 </label>
+            </div>
+
+            {/* OVERLAY APPEARANCE SETTING */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
+                <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">Overlay Appearance</h2>
+                <div className="flex flex-col gap-4">
+                    <label className="flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-medium text-gray-800">Arrow Color</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Color of the directional arrows shown during a gesture.</p>
+                        </div>
+                        <input
+                            type="color"
+                            value={arrowColor}
+                            onChange={(e) => {
+                                setArrowColor(e.target.value);
+                                chrome.storage.local.set({ arrowColor: e.target.value });
+                            }}
+                            className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5"
+                        />
+                    </label>
+                    <div className="border-t border-gray-100" />
+                    <label className="flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-medium text-gray-800">Background Color</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Background color of the overlay box. Opacity is fixed at 70%.</p>
+                        </div>
+                        <input
+                            type="color"
+                            value={overlayBgColor}
+                            onChange={(e) => {
+                                setOverlayBgColor(e.target.value);
+                                chrome.storage.local.set({ overlayBgColor: e.target.value });
+                            }}
+                            className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5"
+                        />
+                    </label>
+                </div>
             </div>
 
 

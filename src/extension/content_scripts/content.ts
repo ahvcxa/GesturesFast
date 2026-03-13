@@ -10,17 +10,26 @@ class GestureTracker {
     private triggerButton = 1;       // 1 = Middle Click, 2 = Right Click
     private lastRightClickTime = 0;  // For double right-click → context menu
     private showOverlay = true;
+    private arrowColor = '#ffffff';
+    private overlayBgColor = '#000000';
 
     constructor() {
         this.overlay = this.createOverlay();
         // Load the user's preferred trigger button before binding events
-        chrome.storage.local.get(['triggerButton', 'showOverlay'], (result) => {
+        chrome.storage.local.get(['triggerButton', 'showOverlay', 'arrowColor', 'overlayBgColor'], (result) => {
             if (result.triggerButton !== undefined) {
                 this.triggerButton = result.triggerButton;
             }
             if (result.showOverlay !== undefined) {
                 this.showOverlay = result.showOverlay;
             }
+            if (result.arrowColor !== undefined) {
+                this.arrowColor = result.arrowColor;
+            }
+            if (result.overlayBgColor !== undefined) {
+                this.overlayBgColor = result.overlayBgColor;
+            }
+            this.applyOverlayColors();
             this.bindEvents();
         });
 
@@ -32,6 +41,14 @@ class GestureTracker {
                 }
                 if (changes.showOverlay !== undefined) {
                     this.showOverlay = changes.showOverlay.newValue;
+                }
+                if (changes.arrowColor !== undefined) {
+                    this.arrowColor = changes.arrowColor.newValue;
+                    this.applyOverlayColors();
+                }
+                if (changes.overlayBgColor !== undefined) {
+                    this.overlayBgColor = changes.overlayBgColor.newValue;
+                    this.applyOverlayColors();
                 }
             }
         });
@@ -60,9 +77,7 @@ class GestureTracker {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         font-size: 6rem; 
         font-weight: bold; 
-        color: #3b82f6; 
         text-shadow: 0px 10px 20px rgba(0,0,0,0.3);
-        background: rgba(255,255,255,0.9); 
         padding: 10px 30px; 
         border-radius: 20px;
         display: none; 
@@ -81,6 +96,17 @@ class GestureTracker {
         shadow.appendChild(div);
 
         return div;
+    }
+
+    /** Applies the current arrowColor and overlayBgColor to the overlay element. */
+    private applyOverlayColors() {
+        // Convert the stored hex color to an rgba value with 0.7 opacity for the background
+        const hex = this.overlayBgColor.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        this.overlay.style.color = this.arrowColor;
+        this.overlay.style.background = `rgba(${r}, ${g}, ${b}, 0.7)`;
     }
 
     private bindEvents() {
