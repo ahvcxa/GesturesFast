@@ -2,21 +2,22 @@
 import React, { useState, useEffect } from 'react';
 
 const AVAILABLE_ACTIONS = [
-    { id: 'CloseTab',    label: 'Close Tab' },
-    { id: 'GoBack',      label: 'Go Back' },
-    { id: 'GoForward',   label: 'Go Forward' },
-    { id: 'Reload',      label: 'Reload Page' },
-    { id: 'ReopenTab',   label: 'Reopen Last Closed Tab' },
-    { id: 'ScrollTop',   label: 'Scroll to Top' },
-    { id: 'ScrollBottom',label: 'Scroll to Bottom' },
-    { id: 'ScrollUp',    label: 'Scroll Up' },
-    { id: 'ScrollDown',  label: 'Scroll Down' },
+    { id: 'CloseTab', label: 'Close Tab' },
+    { id: 'GoBack', label: 'Go Back' },
+    { id: 'GoForward', label: 'Go Forward' },
+    { id: 'Reload', label: 'Reload Page' },
+    { id: 'ReopenTab', label: 'Reopen Last Closed Tab' },
+    { id: 'ScrollTop', label: 'Scroll to Top' },
+    { id: 'ScrollBottom', label: 'Scroll to Bottom' },
+    { id: 'ScrollUp', label: 'Scroll Up' },
+    { id: 'ScrollDown', label: 'Scroll Down' },
 ];
 export const Options: React.FC = () => {
     const [savedGestures, setSavedGestures] = useState<Record<string, string>>({});
     const [currentSequence, setCurrentSequence] = useState<string>('');
     const [selectedAction, setSelectedAction] = useState('CloseTab');
     const [triggerButton, setTriggerButton] = useState<number>(1); // 1 = Middle, 2 = Right
+    const [showOverlay, setShowOverlay] = useState<boolean>(true);
 
     useEffect(() => {
         chrome.storage.local.get(['customGestures', 'triggerButton'], (result) => {
@@ -76,9 +77,8 @@ export const Options: React.FC = () => {
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
                 <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">Trigger Button</h2>
                 <div className="flex gap-4">
-                    <label className={`flex-1 flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        triggerButton === 1 ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-200'
-                    }`}>
+                    <label className={`flex-1 flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${triggerButton === 1 ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-200'
+                        }`}>
                         <input
                             type="radio"
                             name="triggerButton"
@@ -92,9 +92,8 @@ export const Options: React.FC = () => {
                             <p className="text-xs text-gray-400 mt-0.5">Press the scroll wheel button</p>
                         </div>
                     </label>
-                    <label className={`flex-1 flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        triggerButton === 2 ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-200'
-                    }`}>
+                    <label className={`flex-1 flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${triggerButton === 2 ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-200'
+                        }`}>
                         <input
                             type="radio"
                             name="triggerButton"
@@ -110,6 +109,26 @@ export const Options: React.FC = () => {
                     </label>
                 </div>
             </div>
+
+            {/* STEALTH MODE SETTING */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
+                <label className="flex items-center gap-4 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={showOverlay}
+                        onChange={(e) => {
+                            setShowOverlay(e.target.checked);
+                            chrome.storage.local.set({ showOverlay: e.target.checked });
+                        }}
+                        className="w-5 h-5 accent-blue-600 rounded transition-all"
+                    />
+                    <div>
+                        <p className="text-sm font-medium text-gray-800">Show Visual Feedback (Stealth Mode)</p>
+                        <p className="text-xs text-gray-400">If disabled, mouse gestures will execute silently in the background without displaying arrows on the screen.</p>
+                    </div>
+                </label>
+            </div>
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 

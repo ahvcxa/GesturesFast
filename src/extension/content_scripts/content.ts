@@ -9,21 +9,30 @@ class GestureTracker {
     private overlay: HTMLDivElement;
     private triggerButton = 1;       // 1 = Middle Click, 2 = Right Click
     private lastRightClickTime = 0;  // For double right-click → context menu
+    private showOverlay = true;
 
     constructor() {
         this.overlay = this.createOverlay();
         // Load the user's preferred trigger button before binding events
-        chrome.storage.local.get(['triggerButton'], (result) => {
+        chrome.storage.local.get(['triggerButton', 'showOverlay'], (result) => {
             if (result.triggerButton !== undefined) {
                 this.triggerButton = result.triggerButton;
+            }
+            if (result.showOverlay !== undefined) {
+                this.showOverlay = result.showOverlay;
             }
             this.bindEvents();
         });
 
         // React to live settings changes (e.g. Options page open in another tab)
         chrome.storage.onChanged.addListener((changes, area) => {
-            if (area === 'local' && changes.triggerButton) {
-                this.triggerButton = changes.triggerButton.newValue;
+            if (area === 'local') {
+                if (changes.triggerButton) {
+                    this.triggerButton = changes.triggerButton.newValue;
+                }
+                if (changes.showOverlay !== undefined) {
+                    this.showOverlay = changes.showOverlay.newValue;
+                }
             }
         });
     }
@@ -124,7 +133,7 @@ class GestureTracker {
             this.points.push({ x: e.clientX, y: e.clientY });
             const sequence = getDirections(this.points);
 
-            if (sequence.length > 0) {
+            if (sequence.length > 0 && this.showOverlay) {
                 const arrows = sequence.split('').map(char => {
                     if (char === 'U') return '↑';
                     if (char === 'D') return '↓';
@@ -135,7 +144,7 @@ class GestureTracker {
                 this.overlay.innerText = arrows;
                 this.overlay.style.display = 'flex';
             }
-        }
+        };
     }
 
     private onMouseUp(e: MouseEvent) {
