@@ -3,7 +3,7 @@
   <h1>GesturesFast</h1>
   <p><strong>Fast, customizable, and context-aware mouse gesture navigation for your browser.</strong></p>
 
-  [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/ahvcxa/GesturesFast/releases/latest)
+  [![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/ahvcxa/GesturesFast/releases/latest)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![Browser](https://img.shields.io/badge/Browser-Chrome-4285F4?logo=google-chrome&logoColor=white)]()
 </div>

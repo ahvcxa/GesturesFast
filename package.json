@@ -1,6 +1,6 @@
 {
-    "name": "projectmaker-gestures",
-    "version": "1.0.1",
+    "name": "gestures-fast",
+    "version": "1.1.0",
     "description": "Mouse Gesture Extension",
     "type": "module",
     "scripts": {
