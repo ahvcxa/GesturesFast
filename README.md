@@ -24,8 +24,15 @@ GesturesFast is not just another mouse gesture extension. It is engineered with 
 
 ## 🛠️ Available Actions
 Map your gestures (Up, Down, Left, Right) to any of the following browser actions:
+
+**Tab Management:**
+* Go to Previous Tab✨ *New*
+* Open New Tab ✨ *New*
+* Pin / Unpin Tab ✨ *New*
 * Close Current Tab
 * Reopen Last Closed Tab
+
+**Navigation & Scrolling:**
 * Go Back / Go Forward
 * Reload Page
 * Scroll to Top / Bottom
