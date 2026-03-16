@@ -2,6 +2,23 @@
 
 let userGestures: Record<string, string> = {};
 
+let currentTabId: number | null = null;
+let previousTabId: number | null = null;
+
+
+chrome.tabs.onActivated.addListener((activeInfo) => {
+    if (currentTabId !== activeInfo.tabId) {
+        previousTabId = currentTabId;
+        currentTabId = activeInfo.tabId;
+    }
+});
+
+chrome.runtime.onMessage.addListener((request, sender) => {
+    if (request.action === 'execute_action') {
+        executeAction(request.actionType, sender.tab?.id);
+    }
+});
+
 chrome.storage.local.get(['customGestures'], (result) => {
     if (result.customGestures) {
         userGestures = result.customGestures;
@@ -41,6 +58,23 @@ function executeAction(actionName: string, tabId?: number, x?: number, y?: numbe
         case "Reload":
             if (tabId) chrome.tabs.reload(tabId);
             break;
+        case 'previous_tab':
+            if (previousTabId !== null) {
+                chrome.tabs.update(previousTabId, { active: true });
+            }
+            break;
+        case 'new_tab':
+            chrome.tabs.create({});
+            break;
+        case 'pin_tab':
+            if (tabId) {
+                chrome.tabs.get(tabId, (tab) => {
+                    chrome.tabs.update(tabId, { pinned: !tab.pinned });
+                });
+            }
+            break;
+
+
         case "ReopenTab":
             chrome.sessions.restore();
             break;
