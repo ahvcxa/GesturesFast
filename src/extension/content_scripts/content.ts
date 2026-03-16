@@ -110,11 +110,12 @@ class GestureTracker {
     }
 
     private bindEvents() {
-        window.addEventListener('mousedown', this.onMouseDown.bind(this));
-        window.addEventListener('mousemove', this.onMouseMove.bind(this));
-        window.addEventListener('mouseup', this.onMouseUp.bind(this));
-        window.addEventListener('keydown', this.onKeyDown.bind(this));
-        window.addEventListener('contextmenu', this.onContextMenu.bind(this));
+        const options = { capture: true };
+        window.addEventListener('mousedown', this.onMouseDown.bind(this), options);
+        window.addEventListener('mousemove', this.onMouseMove.bind(this), options);
+        window.addEventListener('mouseup', this.onMouseUp.bind(this), options);
+        window.addEventListener('keydown', this.onKeyDown.bind(this), options);
+        window.addEventListener('contextmenu', this.onContextMenu.bind(this), options);
     }
 
     private onMouseDown(e: MouseEvent) {
@@ -153,6 +154,7 @@ class GestureTracker {
         if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
             this.hasMoved = true;
             e.preventDefault();
+            e.stopPropagation();
         }
 
         if (this.hasMoved) {
