@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "GesturesFast",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Fast, customizable mouse gesture navigation for your browser.",
     "permissions": [
         "tabs",
