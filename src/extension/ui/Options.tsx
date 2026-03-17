@@ -1,6 +1,8 @@
 // src/extension/ui/Options.tsx
 import React, { useState, useEffect } from 'react';
 
+
+
 const AVAILABLE_ACTIONS = [
     { id: 'CloseTab', label: 'Close Tab' },
     { id: 'GoBack', label: 'Go Back' },
@@ -24,8 +26,36 @@ export const Options: React.FC = () => {
     const [arrowColor, setArrowColor] = useState<string>('#ffffff');
     const [overlayBgColor, setOverlayBgColor] = useState<string>('#000000');
 
+    const [blacklistedDomains, setBlacklistedDomains] = useState<string[]>([]);
+    const [newDomain, setNewDomain] = useState("");
+
+    const handleAddDomain = () => {
+        let domain = newDomain.trim().toLowerCase();
+        domain = domain.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0];
+
+        if (domain && !blacklistedDomains.includes(domain)) {
+            const updatedList = [...blacklistedDomains, domain];
+            setBlacklistedDomains(updatedList);
+            chrome.storage.local.set({ blacklistedDomains: updatedList });
+            setNewDomain("");
+        }
+    };
+
+    const handleRemoveDomain = (domainToRemove: string) => {
+        const updatedList = blacklistedDomains.filter(d => d !== domainToRemove);
+        setBlacklistedDomains(updatedList);
+        chrome.storage.local.set({ blacklistedDomains: updatedList });
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddDomain();
+        }
+    };
+
     useEffect(() => {
-        chrome.storage.local.get(['customGestures', 'triggerButton', 'arrowColor', 'overlayBgColor'], (result) => {
+        chrome.storage.local.get(['customGestures', 'triggerButton', 'arrowColor', 'overlayBgColor', 'blacklistedDomains'], (result) => {
             if (result.customGestures) {
                 setSavedGestures(result.customGestures);
             } else {
@@ -39,6 +69,9 @@ export const Options: React.FC = () => {
             }
             if (result.overlayBgColor !== undefined) {
                 setOverlayBgColor(result.overlayBgColor);
+            }
+            if (result.blacklistedDomains !== undefined) {
+                setBlacklistedDomains(result.blacklistedDomains);
             }
         });
     }, []);
@@ -120,6 +153,57 @@ export const Options: React.FC = () => {
                     </label>
                 </div>
             </div>
+
+
+            {/* --- EXCEPTIONS / BLACKLIST SECTION --- */}
+            <div className="mt-8 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-xl font-bold text-gray-800 mb-2">🛑 Exceptions (Blacklist)</h2>
+                <p className="text-sm text-gray-500 mb-4">
+                    GesturesFast will be disabled on the domains listed below. Perfect for sites like Figma, Miro, or browser games.
+                </p>
+
+                {/* Input Field for Adding Domains */}
+                <div className="flex gap-2 mb-4">
+                    <input
+                        type="text"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        placeholder="e.g. figma.com or youtube.com"
+                        value={newDomain}
+                        onChange={(e) => setNewDomain(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                    />
+                    <button
+                        onClick={handleAddDomain}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                    >
+                        Add
+                    </button>
+                </div>
+
+                {/* List of Added Domains (Chip / Badge Design) */}
+                <div className="flex flex-wrap gap-2">
+                    {blacklistedDomains.length === 0 ? (
+                        <span className="text-sm text-gray-400 italic">No exceptions added yet.</span>
+                    ) : (
+                        blacklistedDomains.map((domain) => (
+                            <div
+                                key={domain}
+                                className="flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm border border-gray-200"
+                            >
+                                <span>{domain}</span>
+                                <button
+                                    onClick={() => handleRemoveDomain(domain)}
+                                    className="text-gray-400 hover:text-red-500 focus:outline-none transition-colors"
+                                    title="Remove domain"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
 
             {/* STEALTH MODE SETTING */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">

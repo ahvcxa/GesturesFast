@@ -222,9 +222,6 @@ class GestureTracker {
     }
 }
 
-new GestureTracker();
-
-
 // --- CONTEXT-AWARE SMART SCROLL ENGINE ---
 function getDeepElementFromPoint(x: number, y: number): Element | null {
     let el = document.elementFromPoint(x, y);
@@ -292,16 +289,27 @@ function smartScroll(direction: 'top' | 'bottom' | 'up' | 'down', x: number, y: 
     }
 }
 
-chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'PAGE_ACTION') {
-        if (message.action === 'ScrollTop') {
-            smartScroll('top', message.x, message.y);
-        } else if (message.action === 'ScrollBottom') {
-            smartScroll('bottom', message.x, message.y);
-        } else if (message.action === 'ScrollUp') {
-            smartScroll('up', message.x, message.y);
-        } else if (message.action === 'ScrollDown') {
-            smartScroll('down', message.x, message.y);
-        }
+chrome.storage.local.get(['blacklistedDomains'], (result) => {
+    const currentHostname = window.location.hostname.replace(/^www\./i, "");
+    const blacklistedDomains: string[] = result.blacklistedDomains || [];
+
+    if (blacklistedDomains.includes(currentHostname)) {
+        return;
     }
+
+    new GestureTracker();
+
+    chrome.runtime.onMessage.addListener((message) => {
+        if (message.type === 'PAGE_ACTION') {
+            if (message.action === 'ScrollTop') {
+                smartScroll('top', message.x, message.y);
+            } else if (message.action === 'ScrollBottom') {
+                smartScroll('bottom', message.x, message.y);
+            } else if (message.action === 'ScrollUp') {
+                smartScroll('up', message.x, message.y);
+            } else if (message.action === 'ScrollDown') {
+                smartScroll('down', message.x, message.y);
+            }
+        }
+    });
 });
