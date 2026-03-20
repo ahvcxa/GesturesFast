@@ -4,6 +4,9 @@ import { resolve } from 'path';
 
 export default defineConfig({
     plugins: [react()],
+    // Chrome extensions load via chrome-extension://<id>/ — there is no web server,
+    // so asset paths in HTML must be relative ('./options.js') not absolute ('/options.js').
+    base: './',
     build: {
         outDir: 'dist',
         emptyOutDir: true, // Clean the output directory before each build
