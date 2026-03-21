@@ -8,7 +8,7 @@ class GestureTracker {
     private points: { x: number, y: number }[] = [];
     private overlay: HTMLDivElement;
     private triggerButton = 1;       // 1 = Middle Click, 2 = Right Click
-    private lastRightClickTime = 0;  // For double right-click → context menu
+    private lastClickTime = 0;  // For double right-click → context menu
     private showOverlay = true;
     private arrowColor = '#ffffff';
     private overlayBgColor = '#000000';
@@ -124,24 +124,28 @@ class GestureTracker {
         // Always clear movement state so contextmenu handler starts clean
         this.hasMoved = false;
         this.isCancelled = false;
-
-        if (this.triggerButton === 2) {
-            const now = Date.now();
-            if (now - this.lastRightClickTime < 500) {
-                // Double right-click detected: skip gesture mode so the
-                // contextmenu event is not suppressed and the native menu shows.
-                this.lastRightClickTime = 0; // reset so triple-click doesn't chain
-                this.isDrawing = false;
-                return;
-            }
-            this.lastRightClickTime = now;
+        // GENERIC DOUBLE-CLICK BYPASS (For both Right-Click Context Menu and Middle-Click Auto-Scroll)
+        const now = Date.now();
+        if (now - this.lastClickTime < 300) {
+            this.isCancelled = true;
+            this.lastClickTime = 0; // Reset the timer
+            this.isDrawing = false;
+            return; // Do not call preventDefault(); allow the browser to execute its native action (auto-scroll/menu)
         }
+        this.lastClickTime = now;
+
 
         this.isDrawing = true;
         this.points = [{ x: e.clientX, y: e.clientY }];
 
         this.overlay.style.display = 'none';
         this.overlay.innerText = '';
+
+        // If Middle Click is used, block native auto-scroll on the first click.
+        // On the second (rapid) click, the 'return' above is executed, bypassing this and allowing auto-scroll.
+        if (this.triggerButton === 1) {
+            e.preventDefault();
+        }
     }
 
     private onMouseMove(e: MouseEvent) {
