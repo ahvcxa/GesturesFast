@@ -9,9 +9,9 @@ const AVAILABLE_ACTIONS = [
     { id: 'GoForward', label: 'Go Forward' },
     { id: 'Reload', label: 'Reload Page' },
     { id: 'ReopenTab', label: 'Reopen Last Closed Tab' },
-    { id: 'previous_tab', label: 'Go to Previous Tab' },
-    { id: 'new_tab', label: 'Open New Tab' },
-    { id: 'pin_tab', label: 'Pin / Unpin Tab' },
+    { id: 'PreviousTab', label: 'Go to Previous Tab' },
+    { id: 'NewTab', label: 'Open New Tab' },
+    { id: 'PinTab', label: 'Pin / Unpin Tab' },
     { id: 'ScrollTop', label: 'Scroll to Top' },
     { id: 'ScrollBottom', label: 'Scroll to Bottom' },
     { id: 'ScrollUp', label: 'Scroll Up' },
@@ -133,7 +133,7 @@ export const Options: React.FC = () => {
                         />
                         <div>
                             <p className="text-sm font-medium text-gray-800">Middle Click</p>
-                            <p className="text-xs text-gray-400 mt-0.5">Press the scroll wheel button</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Press the scroll wheel button. Double-click for other tasks.</p>
                         </div>
                     </label>
                     <label className={`flex-1 flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${triggerButton === 2 ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-200'
@@ -148,7 +148,7 @@ export const Options: React.FC = () => {
                         />
                         <div>
                             <p className="text-sm font-medium text-gray-800">Right Click</p>
-                            <p className="text-xs text-gray-400 mt-0.5">Double right-click to open the native context menu</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Press right-click. Double-click for other tasks.</p>
                         </div>
                     </label>
                 </div>
@@ -157,7 +157,7 @@ export const Options: React.FC = () => {
 
             {/* --- EXCEPTIONS / BLACKLIST SECTION --- */}
             <div className="mt-8 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-xl font-bold text-gray-800 mb-2">🛑 Exceptions (Blacklist)</h2>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">🛑 Exceptions 🛑</h2>
                 <p className="text-sm text-gray-500 mb-4">
                     GesturesFast will be disabled on the domains listed below. Perfect for sites like Figma, Miro, or browser games.
                 </p>

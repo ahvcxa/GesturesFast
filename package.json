@@ -1,6 +1,6 @@
 {
     "name": "gestures-fast",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "description": "Mouse Gesture Extension",
     "type": "module",
     "scripts": {

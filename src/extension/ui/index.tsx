@@ -1,8 +1,8 @@
-// Dosya: src/extension/ui/index.tsx (Güncelle)
+//src/extension/ui/index.tsx 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { Options } from './Options';
-import './style.css'; // <-- BU SATIRI EKLEDİK
+import './style.css';
 
 const container = document.getElementById('root');
 
