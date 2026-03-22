@@ -1,7 +1,34 @@
 // src/extension/background/background.ts
 
-let userGestures: Record<string, string> = {};
+const DEFAULT_SETTINGS = {
+    customGestures: { 
+        "DR": "CloseTab", 
+        "L": "GoBack", 
+        "R": "GoForward",
+        "U": "ScrollUp",
+        "D": "ScrollDown",
+        "RD": "ScrollBottom",
+        "RU": "ScrollTop",
+        "UD": "Reload",
+        "UL": "PreviousTab"
+    },
+    triggerButton: 2, // right click default
+    showOverlay: true,
+    arrowColor: "#008cff",
+    overlayBgColor: "#000000",
+    blacklistedDomains: []
+};
 
+chrome.runtime.onInstalled.addListener((details) => {
+    if (details.reason === "install") {
+        chrome.storage.local.set(DEFAULT_SETTINGS, () => {
+            console.log("GesturesFast: Default settings initialized.");
+        });
+    }
+});
+
+
+let userGestures: Record<string, string> = {};
 let currentTabId: number | null = null;
 let previousTabId: number | null = null;
 
@@ -10,12 +37,6 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
     if (currentTabId !== activeInfo.tabId) {
         previousTabId = currentTabId;
         currentTabId = activeInfo.tabId;
-    }
-});
-
-chrome.runtime.onMessage.addListener((request, sender) => {
-    if (request.action === 'execute_action') {
-        executeAction(request.actionType, sender.tab?.id);
     }
 });
 
@@ -58,15 +79,15 @@ function executeAction(actionName: string, tabId?: number, x?: number, y?: numbe
         case "Reload":
             if (tabId) chrome.tabs.reload(tabId);
             break;
-        case 'previous_tab':
+        case "PreviousTab":
             if (previousTabId !== null) {
                 chrome.tabs.update(previousTabId, { active: true });
             }
             break;
-        case 'new_tab':
+        case "NewTab":
             chrome.tabs.create({});
             break;
-        case 'pin_tab':
+        case "PinTab":
             if (tabId) {
                 chrome.tabs.get(tabId, (tab) => {
                     chrome.tabs.update(tabId, { pinned: !tab.pinned });
