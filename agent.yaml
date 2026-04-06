@@ -1,0 +1,19 @@
+# ─────────────────────────────────────────────────────────────
+# TEMPLATE: Observer Agent
+# Role      : Read-only analyst. Cannot modify any file.
+# Auth Level: 1 — can run code-analysis and security-audit
+# Use case  : CI pipelines, PR reviews, passive monitoring
+# ─────────────────────────────────────────────────────────────
+agent:
+  id: "observer-01"
+  role: "Observer"
+  skill_set:
+    - "code-analysis"
+    - "security-audit"
+  authorization_level: 1
+  read_only: true
+  read_paths:
+    - "src/"
+    - "public/"
+    - "package.json"
+    - "tsconfig.json"
