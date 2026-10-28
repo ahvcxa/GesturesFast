@@ -2,6 +2,7 @@
 import { getDirections } from '../../core/domain/recognizer';
 
 class GestureTracker {
+    private isDisabled = false;
     private isDrawing = false;
     private hasMoved = false;
     private isCancelled = false;
@@ -13,6 +14,16 @@ class GestureTracker {
     private showOverlay = true;
     private arrowColor = '#008cff';
     private overlayBgColor = '#000000';
+
+    public setDisabled(disabled: boolean) {
+        this.isDisabled = disabled;
+        if (disabled) {
+            this.isDrawing = false;
+            this.hasMoved = false;
+            this.isCancelled = false;
+            this.hideOverlay();
+        }
+    }
 
     constructor() {
         // Load the user's preferred trigger button before binding events
@@ -138,7 +149,7 @@ class GestureTracker {
     }
 
     private onMouseDown(e: MouseEvent) {
-        if (e.button !== this.triggerButton) return;
+        if (this.isDisabled || e.button !== this.triggerButton) return;
 
         // Always clear movement state so contextmenu handler starts clean
         this.hasMoved = false;
@@ -224,7 +235,7 @@ class GestureTracker {
     }
 
     private onContextMenu(e: MouseEvent) {
-        if (this.triggerButton !== 2 || this.isCancelled) return;
+        if (this.isDisabled || this.triggerButton !== 2 || this.isCancelled) return;
         // On Linux, contextmenu fires on mousedown while isDrawing is still true.
         // Record that suppression happened on mousedown so a double right-click can open the native menu.
         if (this.isDrawing) {
@@ -320,27 +331,54 @@ function smartScroll(direction: 'top' | 'bottom' | 'up' | 'down', x: number, y: 
     }
 }
 
-chrome.storage.local.get(['blacklistedDomains'], (result) => {
-    const currentHostname = window.location.hostname.replace(/^www\./i, "");
-    const blacklistedDomains: string[] = result.blacklistedDomains || [];
+function isDomainBlacklisted(hostname: string, blacklistedDomains: string[]): boolean {
+    const cleanHost = hostname.toLowerCase().replace(/^www\./, '');
+    return blacklistedDomains.some((domain) => {
+        const cleanDomain = domain.toLowerCase().replace(/^www\./, '');
+        return cleanHost === cleanDomain || cleanHost.endsWith(`.${cleanDomain}`);
+    });
+}
 
-    if (blacklistedDomains.includes(currentHostname)) {
+let tracker: GestureTracker | null = null;
+let pageListenerBound = false;
+
+function applyBlacklistState(blacklistedDomains: string[]) {
+    const blacklisted = isDomainBlacklisted(window.location.hostname, blacklistedDomains);
+    if (blacklisted) {
+        tracker?.setDisabled(true);
         return;
     }
 
-    new GestureTracker();
+    if (!tracker) {
+        tracker = new GestureTracker();
+    } else {
+        tracker.setDisabled(false);
+    }
 
-    chrome.runtime.onMessage.addListener((message) => {
-        if (message.type === 'PAGE_ACTION') {
-            if (message.action === 'ScrollTop') {
-                smartScroll('top', message.x, message.y);
-            } else if (message.action === 'ScrollBottom') {
-                smartScroll('bottom', message.x, message.y);
-            } else if (message.action === 'ScrollUp') {
-                smartScroll('up', message.x, message.y);
-            } else if (message.action === 'ScrollDown') {
-                smartScroll('down', message.x, message.y);
+    if (!pageListenerBound) {
+        pageListenerBound = true;
+        chrome.runtime.onMessage.addListener((message) => {
+            if (tracker && message.type === 'PAGE_ACTION') {
+                if (message.action === 'ScrollTop') {
+                    smartScroll('top', message.x, message.y);
+                } else if (message.action === 'ScrollBottom') {
+                    smartScroll('bottom', message.x, message.y);
+                } else if (message.action === 'ScrollUp') {
+                    smartScroll('up', message.x, message.y);
+                } else if (message.action === 'ScrollDown') {
+                    smartScroll('down', message.x, message.y);
+                }
             }
-        }
-    });
+        });
+    }
+}
+
+chrome.storage.local.get(['blacklistedDomains'], (result) => {
+    applyBlacklistState(result.blacklistedDomains || []);
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.blacklistedDomains !== undefined) {
+        applyBlacklistState(changes.blacklistedDomains.newValue || []);
+    }
 });
