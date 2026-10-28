@@ -23,7 +23,7 @@
 * **👻 Stealth Mode:** Built for power users. Once you've built muscle memory, toggle on Stealth Mode to hide the visual arrows and let the extension work silently in the background.
 * **🎨 Customizable Themes:** Personalize your gesture trail! Easily change the arrow and background colors via the Options page to match your browser theme (e.g., a "Matrix" theme with neon green arrows on a black background).
 * **📏 Incremental & Absolute Scrolling:** Choose between jumping to the absolute Top/Bottom of a page, or doing a smooth "Incremental Scroll" so you never lose your reading spot.
-* **🧹 Clean Slate Philosophy:** Zero bloatware. The extension installs with an empty gesture dictionary, allowing you to build your own rules from scratch.
+* **⚡ Ready-to-Use Defaults:** Zero bloatware. Comes pre-configured with intuitive default gestures that you can fully customize or clear at any time.
 
 ## 🛠️ Available Actions
 
