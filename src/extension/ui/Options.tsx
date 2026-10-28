@@ -55,7 +55,7 @@ export const Options: React.FC = () => {
     };
 
     useEffect(() => {
-        chrome.storage.local.get(['customGestures', 'triggerButton', 'arrowColor', 'overlayBgColor', 'blacklistedDomains'], (result) => {
+        chrome.storage.local.get(['customGestures', 'triggerButton', 'showOverlay', 'arrowColor', 'overlayBgColor', 'blacklistedDomains'], (result) => {
             if (result.customGestures) {
                 setSavedGestures(result.customGestures);
             } else {
@@ -63,6 +63,9 @@ export const Options: React.FC = () => {
             }
             if (result.triggerButton !== undefined) {
                 setTriggerButton(result.triggerButton);
+            }
+            if (result.showOverlay !== undefined) {
+                setShowOverlay(result.showOverlay);
             }
             if (result.arrowColor !== undefined) {
                 setArrowColor(result.arrowColor);
