@@ -1,5 +1,6 @@
 // src/extension/content_scripts/content.ts
 import { getDirections } from '../../core/domain/recognizer';
+import { ACTION_LABELS, DEFAULT_SETTINGS } from '../../core/domain/settings';
 
 class GestureTracker {
     private isDisabled = false;
@@ -8,12 +9,16 @@ class GestureTracker {
     private isCancelled = false;
     private points: { x: number, y: number }[] = [];
     private overlay: HTMLDivElement | null = null;
-    private triggerButton = 2;       // 1 = Middle Click, 2 = Right Click
+    private arrowsEl: HTMLDivElement | null = null;
+    private labelEl: HTMLDivElement | null = null;
+    private customGestures: Record<string, string> = { ...DEFAULT_SETTINGS.customGestures };
+    private triggerButton = DEFAULT_SETTINGS.triggerButton; // 1 = Middle Click, 2 = Right Click
     private lastClickTime = 0;  // For double-click bypass
     private contextMenuSuppressedOnDown = false;
-    private showOverlay = true;
-    private arrowColor = '#008cff';
-    private overlayBgColor = '#000000';
+    private showOverlay = DEFAULT_SETTINGS.showOverlay;
+    private showActionLabel = DEFAULT_SETTINGS.showActionLabel;
+    private arrowColor = DEFAULT_SETTINGS.arrowColor;
+    private overlayBgColor = DEFAULT_SETTINGS.overlayBgColor;
 
     public setDisabled(disabled: boolean) {
         this.isDisabled = disabled;
@@ -26,13 +31,19 @@ class GestureTracker {
     }
 
     constructor() {
-        // Load the user's preferred trigger button before binding events
-        chrome.storage.local.get(['triggerButton', 'showOverlay', 'arrowColor', 'overlayBgColor'], (result) => {
+        // Load the user's preferred settings before binding events
+        chrome.storage.local.get(['customGestures', 'triggerButton', 'showOverlay', 'showActionLabel', 'arrowColor', 'overlayBgColor'], (result) => {
+            if (result.customGestures !== undefined) {
+                this.customGestures = result.customGestures;
+            }
             if (result.triggerButton !== undefined) {
                 this.triggerButton = result.triggerButton;
             }
             if (result.showOverlay !== undefined) {
                 this.showOverlay = result.showOverlay;
+            }
+            if (result.showActionLabel !== undefined) {
+                this.showActionLabel = result.showActionLabel;
             }
             if (result.arrowColor !== undefined) {
                 this.arrowColor = result.arrowColor;
@@ -47,6 +58,9 @@ class GestureTracker {
         // React to live settings changes (e.g. Options page open in another tab)
         chrome.storage.onChanged.addListener((changes, area) => {
             if (area === 'local') {
+                if (changes.customGestures !== undefined) {
+                    this.customGestures = changes.customGestures.newValue || {};
+                }
                 if (changes.triggerButton) {
                     this.triggerButton = changes.triggerButton.newValue;
                 }
@@ -55,6 +69,9 @@ class GestureTracker {
                     if (!this.showOverlay) {
                         this.hideOverlay();
                     }
+                }
+                if (changes.showActionLabel !== undefined) {
+                    this.showActionLabel = changes.showActionLabel.newValue;
                 }
                 if (changes.arrowColor !== undefined) {
                     this.arrowColor = changes.arrowColor.newValue;
@@ -79,8 +96,26 @@ class GestureTracker {
     private hideOverlay() {
         if (this.overlay) {
             this.overlay.style.display = 'none';
-            this.overlay.innerText = '';
+            if (this.arrowsEl) this.arrowsEl.textContent = '';
+            if (this.labelEl) this.labelEl.textContent = '';
         }
+    }
+
+    private renderOverlayContent(arrows: string, actionId?: string) {
+        const overlay = this.getOverlay();
+        if (this.arrowsEl) {
+            this.arrowsEl.textContent = arrows;
+        }
+        if (this.labelEl) {
+            if (this.showActionLabel) {
+                this.labelEl.textContent = actionId ? (ACTION_LABELS[actionId] || actionId) : 'No Action';
+                this.labelEl.style.opacity = actionId ? '0.95' : '0.5';
+                this.labelEl.style.display = 'block';
+            } else {
+                this.labelEl.style.display = 'none';
+            }
+        }
+        overlay.style.display = 'flex';
     }
 
     private createOverlay() {
@@ -104,22 +139,46 @@ class GestureTracker {
         left: 50%; 
         transform: translate(-50%, -50%);
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        font-size: 6rem; 
-        font-weight: bold; 
-        text-shadow: 0px 10px 20px rgba(0,0,0,0.3);
-        padding: 10px 30px; 
+        padding: 16px 34px; 
         border-radius: 20px;
         display: none; 
-        gap: 10px;
+        flex-direction: column;
+        gap: 6px;
         align-items: center;
         justify-content: center;
         pointer-events: none;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+      }
+      .arrows {
+        font-size: 5.5rem;
+        font-weight: bold;
+        line-height: 1.05;
+        letter-spacing: 0.08em;
+        text-shadow: 0px 8px 18px rgba(0,0,0,0.3);
+      }
+      .action-label {
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-shadow: 0px 2px 8px rgba(0,0,0,0.4);
       }
     `;
 
-        // 4. The arrow display box
+        // 4. The arrow and HUD label display box
         const div = document.createElement('div');
         div.className = 'overlay';
+
+        const arrowsDiv = document.createElement('div');
+        arrowsDiv.className = 'arrows';
+
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'action-label';
+
+        div.appendChild(arrowsDiv);
+        div.appendChild(labelDiv);
+
+        this.arrowsEl = arrowsDiv;
+        this.labelEl = labelDiv;
 
         shadow.appendChild(style);
         shadow.appendChild(div);
@@ -205,9 +264,8 @@ class GestureTracker {
                     return '→';
                 }).join('');
 
-                const overlay = this.getOverlay();
-                overlay.innerText = arrows;
-                overlay.style.display = 'flex';
+                const actionId = this.customGestures[sequence];
+                this.renderOverlayContent(arrows, actionId);
             }
         }
     }

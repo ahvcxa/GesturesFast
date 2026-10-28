@@ -7,6 +7,7 @@ export const Options: React.FC = () => {
     const [selectedAction, setSelectedAction] = useState('CloseTab');
     const [triggerButton, setTriggerButton] = useState<number>(2); // 1 = Middle, 2 = Right
     const [showOverlay, setShowOverlay] = useState<boolean>(true);
+    const [showActionLabel, setShowActionLabel] = useState<boolean>(true);
     const [arrowColor, setArrowColor] = useState<string>('#008cff');
     const [overlayBgColor, setOverlayBgColor] = useState<string>('#000000');
 
@@ -39,7 +40,7 @@ export const Options: React.FC = () => {
     };
 
     useEffect(() => {
-        chrome.storage.local.get(['customGestures', 'triggerButton', 'showOverlay', 'arrowColor', 'overlayBgColor', 'blacklistedDomains'], (result) => {
+        chrome.storage.local.get(['customGestures', 'triggerButton', 'showOverlay', 'showActionLabel', 'arrowColor', 'overlayBgColor', 'blacklistedDomains'], (result) => {
             if (result.customGestures) {
                 setSavedGestures(result.customGestures);
             } else {
@@ -50,6 +51,9 @@ export const Options: React.FC = () => {
             }
             if (result.showOverlay !== undefined) {
                 setShowOverlay(result.showOverlay);
+            }
+            if (result.showActionLabel !== undefined) {
+                setShowActionLabel(result.showActionLabel);
             }
             if (result.arrowColor !== undefined) {
                 setArrowColor(result.arrowColor);
@@ -192,8 +196,8 @@ export const Options: React.FC = () => {
             </div>
 
 
-            {/* STEALTH MODE SETTING */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
+            {/* STEALTH MODE & ACTION HUD SETTING */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10 flex flex-col gap-4">
                 <label className="flex items-center gap-4 cursor-pointer">
                     <input
                         type="checkbox"
@@ -207,6 +211,25 @@ export const Options: React.FC = () => {
                     <div>
                         <p className="text-sm font-medium text-gray-800">Show Visual Feedback (Stealth Mode)</p>
                         <p className="text-xs text-gray-400">If disabled, mouse gestures will execute silently in the background without displaying arrows on the screen.</p>
+                    </div>
+                </label>
+
+                <div className="border-t border-gray-100" />
+
+                <label className={`flex items-center gap-4 cursor-pointer transition-opacity ${!showOverlay ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <input
+                        type="checkbox"
+                        checked={showActionLabel}
+                        disabled={!showOverlay}
+                        onChange={(e) => {
+                            setShowActionLabel(e.target.checked);
+                            chrome.storage.local.set({ showActionLabel: e.target.checked });
+                        }}
+                        className="w-5 h-5 accent-blue-600 rounded transition-all"
+                    />
+                    <div>
+                        <p className="text-sm font-medium text-gray-800">Show Action Preview Label (Action HUD)</p>
+                        <p className="text-xs text-gray-400">Displays the name of the matched action directly beneath the gesture arrows while drawing.</p>
                     </div>
                 </label>
             </div>
