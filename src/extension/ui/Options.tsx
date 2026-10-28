@@ -151,13 +151,40 @@ export const Options: React.FC = () => {
         chrome.storage.local.set({ triggerButton: value });
     };
 
+    const formatArrowsText = (seq: string) =>
+        seq
+            .split('')
+            .map((c) => (c === 'U' ? '↑' : c === 'D' ? '↓' : c === 'L' ? '←' : '→'))
+            .join('');
+
+    // Map each used actionId -> its assigned gesture sequence
+    const usedActionsMap: Record<string, string> = {};
+    for (const [seq, actId] of Object.entries(savedGestures)) {
+        usedActionsMap[actId] = seq;
+    }
+
+    const existingActionForSequence = currentSequence ? savedGestures[currentSequence] : undefined;
+    const existingActionLabel = existingActionForSequence
+        ? AVAILABLE_ACTIONS.find((a) => a.id === existingActionForSequence)?.label || existingActionForSequence
+        : null;
+
+    // Keep selectedAction pointed at an unused action whenever savedGestures changes
+    useEffect(() => {
+        if (usedActionsMap[selectedAction]) {
+            const firstUnused = AVAILABLE_ACTIONS.find((a) => !usedActionsMap[a.id]);
+            if (firstUnused) {
+                setSelectedAction(firstUnused.id);
+            }
+        }
+    }, [savedGestures, selectedAction]);
+
     const addDirection = (dir: string) => {
         if (currentSequence.endsWith(dir)) return;
         setCurrentSequence(prev => prev + dir);
     };
 
     const saveGesture = () => {
-        if (!currentSequence) return;
+        if (!currentSequence || savedGestures[currentSequence] || usedActionsMap[selectedAction]) return;
         const newGestures = { ...savedGestures, [currentSequence]: selectedAction };
         setSavedGestures(newGestures);
         chrome.storage.local.set({ customGestures: newGestures }, () => setCurrentSequence(''));
@@ -440,8 +467,22 @@ export const Options: React.FC = () => {
                 <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                     <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-6">New Gesture</h2>
 
-                    <div className="mb-8 bg-gray-50/50 h-28 rounded-xl flex items-center justify-center text-4xl text-gray-700 tracking-[0.2em] border border-gray-100">
+                    <div
+                        className={`mb-3 h-28 rounded-xl flex items-center justify-center text-4xl text-gray-700 tracking-[0.2em] border transition-colors ${
+                            existingActionLabel
+                                ? 'bg-amber-50/60 border-amber-300'
+                                : 'bg-gray-50/50 border-gray-100'
+                        }`}
+                    >
                         {currentSequence ? renderArrows(currentSequence) : <span className="text-gray-300 text-sm tracking-normal">Click the direction buttons</span>}
+                    </div>
+
+                    <div className="min-h-[1.75rem] mb-5 flex items-center justify-center text-center">
+                        {existingActionLabel && (
+                            <p className="text-xs font-medium text-amber-600">
+                                This gesture is already in use for <span className="font-semibold">"{existingActionLabel}"</span>.
+                            </p>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-3 gap-3 w-48 mx-auto mb-8">
@@ -463,11 +504,27 @@ export const Options: React.FC = () => {
                             onChange={(e) => setSelectedAction(e.target.value)}
                             className="w-full border border-gray-200 bg-gray-50 text-gray-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
                         >
-                            {AVAILABLE_ACTIONS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                            {AVAILABLE_ACTIONS.map((a) => {
+                                const usedSeq = usedActionsMap[a.id];
+                                return (
+                                    <option
+                                        key={a.id}
+                                        value={a.id}
+                                        disabled={Boolean(usedSeq)}
+                                        className={usedSeq ? 'text-gray-300' : 'text-gray-700'}
+                                    >
+                                        {usedSeq ? `${a.label} (${formatArrowsText(usedSeq)})` : a.label}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
 
-                    <button onClick={saveGesture} className="w-full bg-blue-600 text-white font-medium py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                    <button
+                        onClick={saveGesture}
+                        disabled={!currentSequence || Boolean(existingActionLabel) || Boolean(usedActionsMap[selectedAction])}
+                        className="w-full bg-blue-600 text-white font-medium py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
+                    >
                         Save Gesture
                     </button>
                 </div>
