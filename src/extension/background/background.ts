@@ -40,26 +40,58 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 
-let userGestures: Record<string, string> = {};
+let userGestures: Record<string, string> = { ...DEFAULT_SETTINGS.customGestures };
 let currentTabId: number | null = null;
 let previousTabId: number | null = null;
 
-
-chrome.tabs.onActivated.addListener((activeInfo) => {
-    if (currentTabId !== activeInfo.tabId) {
-        previousTabId = currentTabId;
-        currentTabId = activeInfo.tabId;
-    }
+const stateReady = new Promise<void>((resolve) => {
+    chrome.storage.local.get(['customGestures'], (localResult) => {
+        if (localResult.customGestures) {
+            userGestures = localResult.customGestures;
+        }
+        chrome.storage.session.get(['currentTabId', 'previousTabId'], (sessionResult) => {
+            if (typeof sessionResult.currentTabId === 'number') {
+                currentTabId = sessionResult.currentTabId;
+            }
+            if (typeof sessionResult.previousTabId === 'number') {
+                previousTabId = sessionResult.previousTabId;
+            }
+            if (currentTabId === null) {
+                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                    if (tabs[0]?.id !== undefined) {
+                        currentTabId = tabs[0].id;
+                        chrome.storage.session.set({ currentTabId });
+                    }
+                    resolve();
+                });
+            } else {
+                resolve();
+            }
+        });
+    });
 });
 
-chrome.storage.local.get(['customGestures'], (result) => {
-    if (result.customGestures) {
-        userGestures = result.customGestures;
-    }
+chrome.tabs.onActivated.addListener((activeInfo) => {
+    stateReady.then(() => {
+        if (currentTabId !== activeInfo.tabId) {
+            previousTabId = currentTabId;
+            currentTabId = activeInfo.tabId;
+            chrome.storage.session.set({ currentTabId, previousTabId });
+        }
+    });
+});
+
+chrome.tabs.onRemoved.addListener((removedTabId) => {
+    stateReady.then(() => {
+        if (previousTabId === removedTabId) {
+            previousTabId = null;
+            chrome.storage.session.set({ previousTabId: null });
+        }
+    });
 });
 
 chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (namespace === 'local' && changes.customGestures) {
+    if (namespace === 'local' && changes.customGestures?.newValue) {
         userGestures = changes.customGestures.newValue;
     }
 });
@@ -69,11 +101,15 @@ chrome.action.onClicked.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender) => {
-    if (message.type === 'PROCESS_GESTURE' && message.payload.sequence) {
-        const actionName = userGestures[message.payload.sequence];
-        if (actionName) {
-            executeAction(actionName, sender.tab?.id, message.payload.x, message.payload.y);
-        }
+    if (message.type === 'PROCESS_GESTURE' && message.payload?.sequence) {
+        const tabId = sender.tab?.id;
+        const { sequence, x, y } = message.payload;
+        stateReady.then(() => {
+            const actionName = userGestures[sequence];
+            if (actionName) {
+                executeAction(actionName, tabId, x, y);
+            }
+        });
     }
 });
 
@@ -93,7 +129,10 @@ function executeAction(actionName: string, tabId?: number, x?: number, y?: numbe
             break;
         case "PreviousTab":
             if (previousTabId !== null) {
-                chrome.tabs.update(previousTabId, { active: true });
+                chrome.tabs.update(previousTabId, { active: true }).catch(() => {
+                    previousTabId = null;
+                    chrome.storage.session.set({ previousTabId: null });
+                });
             }
             break;
         case "NewTab":
