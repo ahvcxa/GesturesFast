@@ -18,29 +18,33 @@
 
 ## 🚀 Key Features
 
+* **🎡 Wheel Gestures (Hold + Scroll):** Hold your trigger button and scroll the mouse wheel up or down to switch between adjacent tabs or trigger any custom action instantly.
+* **🏷️ Action Preview HUD & Stealth Mode:** See the matched action name directly beneath the gesture arrows while drawing, or toggle on Stealth Mode to execute gestures completely silently.
 * **🎯 Context-Aware Scrolling:** Hover over a specific sidebar, panel, or `div`. The extension intelligently traverses the DOM tree to scroll *only* the element under your cursor, not the whole page.
 * **🛡️ Shadow DOM Piercing:** Works seamlessly on highly complex sites (like Google Gemini, YouTube, etc.) by piercing through encapsulated Web Components to find the true scrollable areas.
-* **👻 Stealth Mode:** Built for power users. Once you've built muscle memory, toggle on Stealth Mode to hide the visual arrows and let the extension work silently in the background.
-* **🎨 Customizable Themes:** Personalize your gesture trail! Easily change the arrow and background colors via the Options page to match your browser theme (e.g., a "Matrix" theme with neon green arrows on a black background).
-* **📏 Incremental & Absolute Scrolling:** Choose between jumping to the absolute Top/Bottom of a page, or doing a smooth "Incremental Scroll" so you never lose your reading spot.
-* **⚡ Ready-to-Use Defaults:** Zero bloatware. Comes pre-configured with intuitive default gestures that you can fully customize or clear at any time.
+* **🎨 Customizable Themes & Live Exceptions:** Personalize your arrow and overlay colors, and blacklist specific domains (including subdomains) like Figma or Miro with instant live effect.
+* **💾 JSON Backup & One-Click Reset:** Export your gestures and settings to a JSON file, import them on any machine, or reset to defaults anytime.
+* **⚡ Ready-to-Use Defaults:** Zero bloatware. Comes pre-configured with intuitive default gestures and built-in duplicate gesture protection.
 
 ## 🛠️ Available Actions
 
-Map your gestures (**Up**, **Down**, **Left**, **Right**) to any of the following browser actions:
+Map your directional gestures (**Up**, **Down**, **Left**, **Right**) or **Wheel Gestures** to any of the following browser actions:
 
-### 📑 Tab Management
-- **Go to Previous Tab** ✨ *New*
-- **Open New Tab** ✨ *New*
-- **Pin / Unpin Tab** ✨ *New*
-- **Close Current Tab**
+### 📑 Tab & Window Management
+- **Switch to Right / Left Tab** ✨ *New*
+- **Go to Last Active Tab** (Alt+Tab behavior)
+- **Open New Tab**
+- **Duplicate Tab** ✨ *New*
+- **Close Current Tab / Close Other Tabs / Close Tabs to the Right** ✨ *New*
 - **Reopen Last Closed Tab**
+- **Pin / Unpin Tab**
+- **Toggle Fullscreen** ✨ *New*
 
 ### 🧭 Navigation & Scrolling
 - **Go Back / Go Forward**
 - **Reload Page**
 - **Scroll to Top / Bottom**
-- **Scroll Up / Down** (Incremental)
+- **Scroll Up / Down** (Dynamic viewport-aware incremental scroll)
 
 ## 📦 Installation
 
