@@ -1,6 +1,5 @@
 /* src/extension/ui/style.css */
 @import "tailwindcss";
-@config "../../../tailwind.config.js";
 
 body {
     background-color: #fafafa;
