@@ -8,7 +8,8 @@ class GestureTracker {
     private points: { x: number, y: number }[] = [];
     private overlay: HTMLDivElement;
     private triggerButton = 2;       // 1 = Middle Click, 2 = Right Click
-    private lastClickTime = 0;  // For double right-click → context menu
+    private lastClickTime = 0;  // For double-click bypass
+    private contextMenuSuppressedOnDown = false;
     private showOverlay = true;
     private arrowColor = '#008cff';
     private overlayBgColor = '#000000';
@@ -124,16 +125,20 @@ class GestureTracker {
         // Always clear movement state so contextmenu handler starts clean
         this.hasMoved = false;
         this.isCancelled = false;
-        // GENERIC DOUBLE-CLICK BYPASS (For both Right-Click Context Menu and Middle-Click Auto-Scroll)
+
+        // Double-click bypass for Middle-Click Auto-Scroll, or Right-Click Context Menu on platforms
+        // (such as Linux) where contextmenu fires on mousedown and was suppressed on the first click.
         const now = Date.now();
-        if (now - this.lastClickTime < 300) {
+        const needsDoubleClickBypass = this.triggerButton === 1 || this.contextMenuSuppressedOnDown;
+        if (needsDoubleClickBypass && now - this.lastClickTime < 300) {
             this.isCancelled = true;
-            this.lastClickTime = 0; // Reset the timer
+            this.contextMenuSuppressedOnDown = false;
+            this.lastClickTime = 0;
             this.isDrawing = false;
-            return; // Do not call preventDefault(); allow the browser to execute its native action (auto-scroll/menu)
+            return; // Allow the browser to execute its native action (auto-scroll / context menu)
         }
         this.lastClickTime = now;
-
+        this.contextMenuSuppressedOnDown = false;
 
         this.isDrawing = true;
         this.points = [{ x: e.clientX, y: e.clientY }];
@@ -142,7 +147,6 @@ class GestureTracker {
         this.overlay.innerText = '';
 
         // If Middle Click is used, block native auto-scroll on the first click.
-        // On the second (rapid) click, the 'return' above is executed, bypassing this and allowing auto-scroll.
         if (this.triggerButton === 1) {
             e.preventDefault();
         }
@@ -176,7 +180,7 @@ class GestureTracker {
                 this.overlay.innerText = arrows;
                 this.overlay.style.display = 'flex';
             }
-        };
+        }
     }
 
     private onMouseUp(e: MouseEvent) {
@@ -204,13 +208,18 @@ class GestureTracker {
     }
 
     private onContextMenu(e: MouseEvent) {
-        if (this.triggerButton !== 2) return;
-        // On Linux, contextmenu fires on mousedown (before any mousemove can set hasMoved).
-        // isDrawing is true at that exact moment, so we suppress immediately.
-        // On Windows/macOS, contextmenu fires after mouseup (isDrawing is already false),
-        // so we fall back to checking hasMoved.
-        // Plain right-click (no drag): mouseup fires first → isDrawing=false, hasMoved=false → menu allowed.
-        if (this.isDrawing || this.hasMoved) {
+        if (this.triggerButton !== 2 || this.isCancelled) return;
+        // On Linux, contextmenu fires on mousedown while isDrawing is still true.
+        // Record that suppression happened on mousedown so a double right-click can open the native menu.
+        if (this.isDrawing) {
+            this.contextMenuSuppressedOnDown = true;
+            e.preventDefault();
+            return;
+        }
+        // On Windows/macOS, contextmenu fires after mouseup (isDrawing is false).
+        // Only suppress if the user actually dragged to draw a gesture; plain right-click opens the menu.
+        if (this.hasMoved) {
+            this.hasMoved = false;
             e.preventDefault();
         }
     }
