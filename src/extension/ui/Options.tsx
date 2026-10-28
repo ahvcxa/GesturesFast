@@ -159,7 +159,7 @@ export const Options: React.FC = () => {
 
 
             {/* --- EXCEPTIONS / BLACKLIST SECTION --- */}
-            <div className="mt-8 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
                 <h2 className="text-xl font-bold text-gray-800 mb-2">🛑 Exceptions 🛑</h2>
                 <p className="text-sm text-gray-500 mb-4">
                     GesturesFast will be disabled on the domains listed below. Perfect for sites like Figma, Miro, or browser games.
