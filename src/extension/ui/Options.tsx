@@ -10,6 +10,9 @@ export const Options: React.FC = () => {
     const [showActionLabel, setShowActionLabel] = useState<boolean>(true);
     const [arrowColor, setArrowColor] = useState<string>('#008cff');
     const [overlayBgColor, setOverlayBgColor] = useState<string>('#000000');
+    const [enableWheelGestures, setEnableWheelGestures] = useState<boolean>(true);
+    const [wheelUpAction, setWheelUpAction] = useState<string>('PrevTab');
+    const [wheelDownAction, setWheelDownAction] = useState<string>('NextTab');
 
     const [blacklistedDomains, setBlacklistedDomains] = useState<string[]>([]);
     const [newDomain, setNewDomain] = useState("");
@@ -40,31 +43,54 @@ export const Options: React.FC = () => {
     };
 
     useEffect(() => {
-        chrome.storage.local.get(['customGestures', 'triggerButton', 'showOverlay', 'showActionLabel', 'arrowColor', 'overlayBgColor', 'blacklistedDomains'], (result) => {
-            if (result.customGestures) {
-                setSavedGestures(result.customGestures);
-            } else {
-                setSavedGestures({});
+        chrome.storage.local.get(
+            [
+                'customGestures',
+                'triggerButton',
+                'showOverlay',
+                'showActionLabel',
+                'arrowColor',
+                'overlayBgColor',
+                'blacklistedDomains',
+                'enableWheelGestures',
+                'wheelUpAction',
+                'wheelDownAction'
+            ],
+            (result) => {
+                if (result.customGestures) {
+                    setSavedGestures(result.customGestures);
+                } else {
+                    setSavedGestures({});
+                }
+                if (result.triggerButton !== undefined) {
+                    setTriggerButton(result.triggerButton);
+                }
+                if (result.showOverlay !== undefined) {
+                    setShowOverlay(result.showOverlay);
+                }
+                if (result.showActionLabel !== undefined) {
+                    setShowActionLabel(result.showActionLabel);
+                }
+                if (result.arrowColor !== undefined) {
+                    setArrowColor(result.arrowColor);
+                }
+                if (result.overlayBgColor !== undefined) {
+                    setOverlayBgColor(result.overlayBgColor);
+                }
+                if (result.blacklistedDomains !== undefined) {
+                    setBlacklistedDomains(result.blacklistedDomains);
+                }
+                if (result.enableWheelGestures !== undefined) {
+                    setEnableWheelGestures(result.enableWheelGestures);
+                }
+                if (result.wheelUpAction !== undefined) {
+                    setWheelUpAction(result.wheelUpAction);
+                }
+                if (result.wheelDownAction !== undefined) {
+                    setWheelDownAction(result.wheelDownAction);
+                }
             }
-            if (result.triggerButton !== undefined) {
-                setTriggerButton(result.triggerButton);
-            }
-            if (result.showOverlay !== undefined) {
-                setShowOverlay(result.showOverlay);
-            }
-            if (result.showActionLabel !== undefined) {
-                setShowActionLabel(result.showActionLabel);
-            }
-            if (result.arrowColor !== undefined) {
-                setArrowColor(result.arrowColor);
-            }
-            if (result.overlayBgColor !== undefined) {
-                setOverlayBgColor(result.overlayBgColor);
-            }
-            if (result.blacklistedDomains !== undefined) {
-                setBlacklistedDomains(result.blacklistedDomains);
-            }
-        });
+        );
     }, []);
 
     const handleTriggerButtonChange = (value: number) => {
@@ -142,6 +168,53 @@ export const Options: React.FC = () => {
                             <p className="text-xs text-gray-400 mt-0.5">Press right-click. Double-click for other tasks.</p>
                         </div>
                     </label>
+                </div>
+            </div>
+
+            {/* Wheel Gestures Setting */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400">Wheel Gestures</h2>
+                        <p className="text-xs text-gray-400 mt-1">Hold the trigger button and scroll the mouse wheel to execute instant actions.</p>
+                    </div>
+                    <input
+                        type="checkbox"
+                        checked={enableWheelGestures}
+                        onChange={(e) => {
+                            setEnableWheelGestures(e.target.checked);
+                            chrome.storage.local.set({ enableWheelGestures: e.target.checked });
+                        }}
+                        className="w-5 h-5 accent-blue-600 rounded cursor-pointer transition-all"
+                    />
+                </div>
+                <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 transition-opacity ${!enableWheelGestures ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">Hold + Wheel Up (↑)</label>
+                        <select
+                            value={wheelUpAction}
+                            onChange={(e) => {
+                                setWheelUpAction(e.target.value);
+                                chrome.storage.local.set({ wheelUpAction: e.target.value });
+                            }}
+                            className="w-full border border-gray-200 bg-gray-50 text-gray-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                        >
+                            {AVAILABLE_ACTIONS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">Hold + Wheel Down (↓)</label>
+                        <select
+                            value={wheelDownAction}
+                            onChange={(e) => {
+                                setWheelDownAction(e.target.value);
+                                chrome.storage.local.set({ wheelDownAction: e.target.value });
+                            }}
+                            className="w-full border border-gray-200 bg-gray-50 text-gray-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                        >
+                            {AVAILABLE_ACTIONS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                        </select>
+                    </div>
                 </div>
             </div>
 

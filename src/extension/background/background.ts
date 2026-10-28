@@ -83,14 +83,19 @@ chrome.action.onClicked.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender) => {
+    const tabId = sender.tab?.id;
     if (message.type === 'PROCESS_GESTURE' && message.payload?.sequence) {
-        const tabId = sender.tab?.id;
         const { sequence, x, y } = message.payload;
         stateReady.then(() => {
             const actionName = userGestures[sequence];
             if (actionName) {
                 executeAction(actionName, tabId, x, y);
             }
+        });
+    } else if (message.type === 'EXECUTE_ACTION' && message.payload?.actionName) {
+        const { actionName, x, y } = message.payload;
+        stateReady.then(() => {
+            executeAction(actionName, tabId, x, y);
         });
     }
 });

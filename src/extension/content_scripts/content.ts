@@ -6,6 +6,7 @@ class GestureTracker {
     private isDisabled = false;
     private isDrawing = false;
     private hasMoved = false;
+    private hasWheeled = false;
     private isCancelled = false;
     private points: { x: number, y: number }[] = [];
     private overlay: HTMLDivElement | null = null;
@@ -19,12 +20,16 @@ class GestureTracker {
     private showActionLabel = DEFAULT_SETTINGS.showActionLabel;
     private arrowColor = DEFAULT_SETTINGS.arrowColor;
     private overlayBgColor = DEFAULT_SETTINGS.overlayBgColor;
+    private enableWheelGestures = DEFAULT_SETTINGS.enableWheelGestures;
+    private wheelUpAction = DEFAULT_SETTINGS.wheelUpAction;
+    private wheelDownAction = DEFAULT_SETTINGS.wheelDownAction;
 
     public setDisabled(disabled: boolean) {
         this.isDisabled = disabled;
         if (disabled) {
             this.isDrawing = false;
             this.hasMoved = false;
+            this.hasWheeled = false;
             this.isCancelled = false;
             this.hideOverlay();
         }
@@ -32,28 +37,50 @@ class GestureTracker {
 
     constructor() {
         // Load the user's preferred settings before binding events
-        chrome.storage.local.get(['customGestures', 'triggerButton', 'showOverlay', 'showActionLabel', 'arrowColor', 'overlayBgColor'], (result) => {
-            if (result.customGestures !== undefined) {
-                this.customGestures = result.customGestures;
+        chrome.storage.local.get(
+            [
+                'customGestures',
+                'triggerButton',
+                'showOverlay',
+                'showActionLabel',
+                'arrowColor',
+                'overlayBgColor',
+                'enableWheelGestures',
+                'wheelUpAction',
+                'wheelDownAction'
+            ],
+            (result) => {
+                if (result.customGestures !== undefined) {
+                    this.customGestures = result.customGestures;
+                }
+                if (result.triggerButton !== undefined) {
+                    this.triggerButton = result.triggerButton;
+                }
+                if (result.showOverlay !== undefined) {
+                    this.showOverlay = result.showOverlay;
+                }
+                if (result.showActionLabel !== undefined) {
+                    this.showActionLabel = result.showActionLabel;
+                }
+                if (result.arrowColor !== undefined) {
+                    this.arrowColor = result.arrowColor;
+                }
+                if (result.overlayBgColor !== undefined) {
+                    this.overlayBgColor = result.overlayBgColor;
+                }
+                if (result.enableWheelGestures !== undefined) {
+                    this.enableWheelGestures = result.enableWheelGestures;
+                }
+                if (result.wheelUpAction !== undefined) {
+                    this.wheelUpAction = result.wheelUpAction;
+                }
+                if (result.wheelDownAction !== undefined) {
+                    this.wheelDownAction = result.wheelDownAction;
+                }
+                this.applyOverlayColors();
+                this.bindEvents();
             }
-            if (result.triggerButton !== undefined) {
-                this.triggerButton = result.triggerButton;
-            }
-            if (result.showOverlay !== undefined) {
-                this.showOverlay = result.showOverlay;
-            }
-            if (result.showActionLabel !== undefined) {
-                this.showActionLabel = result.showActionLabel;
-            }
-            if (result.arrowColor !== undefined) {
-                this.arrowColor = result.arrowColor;
-            }
-            if (result.overlayBgColor !== undefined) {
-                this.overlayBgColor = result.overlayBgColor;
-            }
-            this.applyOverlayColors();
-            this.bindEvents();
-        });
+        );
 
         // React to live settings changes (e.g. Options page open in another tab)
         chrome.storage.onChanged.addListener((changes, area) => {
@@ -80,6 +107,15 @@ class GestureTracker {
                 if (changes.overlayBgColor !== undefined) {
                     this.overlayBgColor = changes.overlayBgColor.newValue;
                     this.applyOverlayColors();
+                }
+                if (changes.enableWheelGestures !== undefined) {
+                    this.enableWheelGestures = changes.enableWheelGestures.newValue;
+                }
+                if (changes.wheelUpAction !== undefined) {
+                    this.wheelUpAction = changes.wheelUpAction.newValue;
+                }
+                if (changes.wheelDownAction !== undefined) {
+                    this.wheelDownAction = changes.wheelDownAction.newValue;
                 }
             }
         });
@@ -203,6 +239,7 @@ class GestureTracker {
         window.addEventListener('mousedown', this.onMouseDown.bind(this), options);
         window.addEventListener('mousemove', this.onMouseMove.bind(this), options);
         window.addEventListener('mouseup', this.onMouseUp.bind(this), options);
+        window.addEventListener('wheel', this.onWheel.bind(this), { capture: true, passive: false });
         window.addEventListener('keydown', this.onKeyDown.bind(this), options);
         window.addEventListener('contextmenu', this.onContextMenu.bind(this), options);
     }
@@ -212,6 +249,7 @@ class GestureTracker {
 
         // Always clear movement state so contextmenu handler starts clean
         this.hasMoved = false;
+        this.hasWheeled = false;
         this.isCancelled = false;
 
         // Double-click bypass for Middle-Click Auto-Scroll, or Right-Click Context Menu on platforms
@@ -239,8 +277,28 @@ class GestureTracker {
         }
     }
 
+    private onWheel(e: WheelEvent) {
+        if (this.isDisabled || !this.isDrawing || this.isCancelled || !this.enableWheelGestures) return;
+        if (e.deltaY === 0) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        this.hasWheeled = true;
+        this.hasMoved = false;
+        this.hideOverlay();
+
+        const actionName = e.deltaY < 0 ? this.wheelUpAction : this.wheelDownAction;
+        if (actionName && chrome && chrome.runtime) {
+            chrome.runtime.sendMessage({
+                type: 'EXECUTE_ACTION',
+                payload: { actionName, x: e.clientX, y: e.clientY }
+            });
+        }
+    }
+
     private onMouseMove(e: MouseEvent) {
-        if (!this.isDrawing || this.isCancelled) return;
+        if (!this.isDrawing || this.isCancelled || this.hasWheeled) return;
 
         const startPt = this.points[0];
         const dx = e.clientX - startPt.x;
@@ -276,7 +334,7 @@ class GestureTracker {
 
         this.hideOverlay();
 
-        if (this.hasMoved && !this.isCancelled) {
+        if (this.hasMoved && !this.hasWheeled && !this.isCancelled) {
             const sequence = getDirections(this.points);
             if (sequence) {
                 this.sendGesture(sequence);
@@ -302,9 +360,10 @@ class GestureTracker {
             return;
         }
         // On Windows/macOS, contextmenu fires after mouseup (isDrawing is false).
-        // Only suppress if the user actually dragged to draw a gesture; plain right-click opens the menu.
-        if (this.hasMoved) {
+        // Only suppress if the user actually dragged or wheeled; plain right-click opens the menu.
+        if (this.hasMoved || this.hasWheeled) {
             this.hasMoved = false;
+            this.hasWheeled = false;
             e.preventDefault();
         }
     }
