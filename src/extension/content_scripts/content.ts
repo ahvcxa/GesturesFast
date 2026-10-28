@@ -6,7 +6,7 @@ class GestureTracker {
     private hasMoved = false;
     private isCancelled = false;
     private points: { x: number, y: number }[] = [];
-    private overlay: HTMLDivElement;
+    private overlay: HTMLDivElement | null = null;
     private triggerButton = 2;       // 1 = Middle Click, 2 = Right Click
     private lastClickTime = 0;  // For double-click bypass
     private contextMenuSuppressedOnDown = false;
@@ -15,7 +15,6 @@ class GestureTracker {
     private overlayBgColor = '#000000';
 
     constructor() {
-        this.overlay = this.createOverlay();
         // Load the user's preferred trigger button before binding events
         chrome.storage.local.get(['triggerButton', 'showOverlay', 'arrowColor', 'overlayBgColor'], (result) => {
             if (result.triggerButton !== undefined) {
@@ -42,6 +41,9 @@ class GestureTracker {
                 }
                 if (changes.showOverlay !== undefined) {
                     this.showOverlay = changes.showOverlay.newValue;
+                    if (!this.showOverlay) {
+                        this.hideOverlay();
+                    }
                 }
                 if (changes.arrowColor !== undefined) {
                     this.arrowColor = changes.arrowColor.newValue;
@@ -53,6 +55,21 @@ class GestureTracker {
                 }
             }
         });
+    }
+
+    private getOverlay(): HTMLDivElement {
+        if (!this.overlay) {
+            this.overlay = this.createOverlay();
+            this.applyOverlayColors();
+        }
+        return this.overlay;
+    }
+
+    private hideOverlay() {
+        if (this.overlay) {
+            this.overlay.style.display = 'none';
+            this.overlay.innerText = '';
+        }
     }
 
     private createOverlay() {
@@ -101,6 +118,7 @@ class GestureTracker {
 
     /** Applies the current arrowColor and overlayBgColor to the overlay element. */
     private applyOverlayColors() {
+        if (!this.overlay) return;
         // Convert the stored hex color to an rgba value with 0.7 opacity for the background
         const hex = this.overlayBgColor.replace('#', '');
         const r = parseInt(hex.substring(0, 2), 16);
@@ -143,8 +161,7 @@ class GestureTracker {
         this.isDrawing = true;
         this.points = [{ x: e.clientX, y: e.clientY }];
 
-        this.overlay.style.display = 'none';
-        this.overlay.innerText = '';
+        this.hideOverlay();
 
         // If Middle Click is used, block native auto-scroll on the first click.
         if (this.triggerButton === 1) {
@@ -177,8 +194,9 @@ class GestureTracker {
                     return '→';
                 }).join('');
 
-                this.overlay.innerText = arrows;
-                this.overlay.style.display = 'flex';
+                const overlay = this.getOverlay();
+                overlay.innerText = arrows;
+                overlay.style.display = 'flex';
             }
         }
     }
@@ -187,8 +205,7 @@ class GestureTracker {
         if (e.button !== this.triggerButton || !this.isDrawing) return;
         this.isDrawing = false;
 
-        this.overlay.style.display = 'none';
-        this.overlay.innerText = '';
+        this.hideOverlay();
 
         if (this.hasMoved && !this.isCancelled) {
             const sequence = getDirections(this.points);
@@ -202,8 +219,7 @@ class GestureTracker {
         if (e.key === 'Escape' && this.isDrawing) {
             this.isCancelled = true;
             this.isDrawing = false;
-            this.overlay.style.display = 'none';
-            this.overlay.innerText = '';
+            this.hideOverlay();
         }
     }
 
