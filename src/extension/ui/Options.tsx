@@ -1,21 +1,119 @@
 // src/extension/ui/Options.tsx
-import React, { useState, useEffect } from 'react';
-import { AVAILABLE_ACTIONS } from '../../core/domain/settings';
+import React, { useState, useEffect, useRef } from 'react';
+import { AVAILABLE_ACTIONS, DEFAULT_SETTINGS, ExtensionSettings } from '../../core/domain/settings';
+
 export const Options: React.FC = () => {
     const [savedGestures, setSavedGestures] = useState<Record<string, string>>({});
     const [currentSequence, setCurrentSequence] = useState<string>('');
     const [selectedAction, setSelectedAction] = useState('CloseTab');
-    const [triggerButton, setTriggerButton] = useState<number>(2); // 1 = Middle, 2 = Right
-    const [showOverlay, setShowOverlay] = useState<boolean>(true);
-    const [showActionLabel, setShowActionLabel] = useState<boolean>(true);
-    const [arrowColor, setArrowColor] = useState<string>('#008cff');
-    const [overlayBgColor, setOverlayBgColor] = useState<string>('#000000');
-    const [enableWheelGestures, setEnableWheelGestures] = useState<boolean>(true);
-    const [wheelUpAction, setWheelUpAction] = useState<string>('PrevTab');
-    const [wheelDownAction, setWheelDownAction] = useState<string>('NextTab');
+    const [triggerButton, setTriggerButton] = useState<number>(DEFAULT_SETTINGS.triggerButton);
+    const [showOverlay, setShowOverlay] = useState<boolean>(DEFAULT_SETTINGS.showOverlay);
+    const [showActionLabel, setShowActionLabel] = useState<boolean>(DEFAULT_SETTINGS.showActionLabel);
+    const [arrowColor, setArrowColor] = useState<string>(DEFAULT_SETTINGS.arrowColor);
+    const [overlayBgColor, setOverlayBgColor] = useState<string>(DEFAULT_SETTINGS.overlayBgColor);
+    const [enableWheelGestures, setEnableWheelGestures] = useState<boolean>(DEFAULT_SETTINGS.enableWheelGestures);
+    const [wheelUpAction, setWheelUpAction] = useState<string>(DEFAULT_SETTINGS.wheelUpAction);
+    const [wheelDownAction, setWheelDownAction] = useState<string>(DEFAULT_SETTINGS.wheelDownAction);
 
     const [blacklistedDomains, setBlacklistedDomains] = useState<string[]>([]);
     const [newDomain, setNewDomain] = useState("");
+    const [statusMessage, setStatusMessage] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    const showStatus = (msg: string) => {
+        setStatusMessage(msg);
+        window.setTimeout(() => setStatusMessage(null), 3000);
+    };
+
+    const applySettingsToState = (settings: Partial<ExtensionSettings>) => {
+        if (settings.customGestures !== undefined) setSavedGestures(settings.customGestures);
+        if (settings.triggerButton !== undefined) setTriggerButton(settings.triggerButton);
+        if (settings.showOverlay !== undefined) setShowOverlay(settings.showOverlay);
+        if (settings.showActionLabel !== undefined) setShowActionLabel(settings.showActionLabel);
+        if (settings.arrowColor !== undefined) setArrowColor(settings.arrowColor);
+        if (settings.overlayBgColor !== undefined) setOverlayBgColor(settings.overlayBgColor);
+        if (settings.blacklistedDomains !== undefined) setBlacklistedDomains(settings.blacklistedDomains);
+        if (settings.enableWheelGestures !== undefined) setEnableWheelGestures(settings.enableWheelGestures);
+        if (settings.wheelUpAction !== undefined) setWheelUpAction(settings.wheelUpAction);
+        if (settings.wheelDownAction !== undefined) setWheelDownAction(settings.wheelDownAction);
+    };
+
+    const handleExportSettings = () => {
+        const exportData: ExtensionSettings = {
+            customGestures: savedGestures,
+            triggerButton,
+            showOverlay,
+            showActionLabel,
+            arrowColor,
+            overlayBgColor,
+            blacklistedDomains,
+            enableWheelGestures,
+            wheelUpAction,
+            wheelDownAction,
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gesturesfast-settings.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        showStatus('Settings exported successfully.');
+    };
+
+    const handleImportSettings = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const parsed = JSON.parse(String(reader.result));
+                if (!parsed || typeof parsed !== 'object') {
+                    throw new Error('Invalid JSON structure');
+                }
+                const sanitized: ExtensionSettings = {
+                    customGestures:
+                        parsed.customGestures && typeof parsed.customGestures === 'object'
+                            ? parsed.customGestures
+                            : DEFAULT_SETTINGS.customGestures,
+                    triggerButton: parsed.triggerButton === 1 || parsed.triggerButton === 2 ? parsed.triggerButton : DEFAULT_SETTINGS.triggerButton,
+                    showOverlay: typeof parsed.showOverlay === 'boolean' ? parsed.showOverlay : DEFAULT_SETTINGS.showOverlay,
+                    showActionLabel: typeof parsed.showActionLabel === 'boolean' ? parsed.showActionLabel : DEFAULT_SETTINGS.showActionLabel,
+                    arrowColor: typeof parsed.arrowColor === 'string' ? parsed.arrowColor : DEFAULT_SETTINGS.arrowColor,
+                    overlayBgColor: typeof parsed.overlayBgColor === 'string' ? parsed.overlayBgColor : DEFAULT_SETTINGS.overlayBgColor,
+                    blacklistedDomains: Array.isArray(parsed.blacklistedDomains) ? parsed.blacklistedDomains : DEFAULT_SETTINGS.blacklistedDomains,
+                    enableWheelGestures: typeof parsed.enableWheelGestures === 'boolean' ? parsed.enableWheelGestures : DEFAULT_SETTINGS.enableWheelGestures,
+                    wheelUpAction: typeof parsed.wheelUpAction === 'string' ? parsed.wheelUpAction : DEFAULT_SETTINGS.wheelUpAction,
+                    wheelDownAction: typeof parsed.wheelDownAction === 'string' ? parsed.wheelDownAction : DEFAULT_SETTINGS.wheelDownAction,
+                };
+                applySettingsToState(sanitized);
+                chrome.storage.local.set(sanitized, () => {
+                    showStatus('Settings imported successfully.');
+                });
+            } catch {
+                showStatus('Failed to import settings: Invalid JSON file.');
+            } finally {
+                e.target.value = '';
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const handleResetDefaults = () => {
+        if (!window.confirm('Are you sure you want to reset all gestures and settings to their default values?')) {
+            return;
+        }
+        const defaultsCopy: ExtensionSettings = {
+            ...DEFAULT_SETTINGS,
+            customGestures: { ...DEFAULT_SETTINGS.customGestures },
+            blacklistedDomains: [...DEFAULT_SETTINGS.blacklistedDomains],
+        };
+        applySettingsToState(defaultsCopy);
+        chrome.storage.local.set(defaultsCopy, () => {
+            showStatus('All settings have been reset to defaults.');
+        });
+    };
 
     const handleAddDomain = () => {
         let domain = newDomain.trim().toLowerCase();
@@ -43,54 +141,9 @@ export const Options: React.FC = () => {
     };
 
     useEffect(() => {
-        chrome.storage.local.get(
-            [
-                'customGestures',
-                'triggerButton',
-                'showOverlay',
-                'showActionLabel',
-                'arrowColor',
-                'overlayBgColor',
-                'blacklistedDomains',
-                'enableWheelGestures',
-                'wheelUpAction',
-                'wheelDownAction'
-            ],
-            (result) => {
-                if (result.customGestures) {
-                    setSavedGestures(result.customGestures);
-                } else {
-                    setSavedGestures({});
-                }
-                if (result.triggerButton !== undefined) {
-                    setTriggerButton(result.triggerButton);
-                }
-                if (result.showOverlay !== undefined) {
-                    setShowOverlay(result.showOverlay);
-                }
-                if (result.showActionLabel !== undefined) {
-                    setShowActionLabel(result.showActionLabel);
-                }
-                if (result.arrowColor !== undefined) {
-                    setArrowColor(result.arrowColor);
-                }
-                if (result.overlayBgColor !== undefined) {
-                    setOverlayBgColor(result.overlayBgColor);
-                }
-                if (result.blacklistedDomains !== undefined) {
-                    setBlacklistedDomains(result.blacklistedDomains);
-                }
-                if (result.enableWheelGestures !== undefined) {
-                    setEnableWheelGestures(result.enableWheelGestures);
-                }
-                if (result.wheelUpAction !== undefined) {
-                    setWheelUpAction(result.wheelUpAction);
-                }
-                if (result.wheelDownAction !== undefined) {
-                    setWheelDownAction(result.wheelDownAction);
-                }
-            }
-        );
+        chrome.storage.local.get(Object.keys(DEFAULT_SETTINGS), (result) => {
+            applySettingsToState(result as Partial<ExtensionSettings>);
+        });
     }, []);
 
     const handleTriggerButtonChange = (value: number) => {
@@ -129,10 +182,45 @@ export const Options: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto p-10 font-sans text-gray-800">
-            <header className="mb-12">
-                <h1 className="text-3xl font-light tracking-tight text-gray-900">Gestures<span className="font-semibold text-blue-600">Fast</span></h1>
-                <p className="text-sm text-gray-500 mt-2">Manage your mouse gestures.</p>
+            <header className="mb-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-light tracking-tight text-gray-900">Gestures<span className="font-semibold text-blue-600">Fast</span></h1>
+                    <p className="text-sm text-gray-500 mt-2">Manage your mouse gestures.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".json,application/json"
+                        onChange={handleImportSettings}
+                        className="hidden"
+                    />
+                    <button
+                        onClick={handleExportSettings}
+                        className="px-4 py-2 text-xs font-medium bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors shadow-sm"
+                    >
+                        Export JSON
+                    </button>
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 text-xs font-medium bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors shadow-sm"
+                    >
+                        Import JSON
+                    </button>
+                    <button
+                        onClick={handleResetDefaults}
+                        className="px-4 py-2 text-xs font-medium bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors shadow-sm"
+                    >
+                        Reset to Defaults
+                    </button>
+                </div>
             </header>
+
+            {statusMessage && (
+                <div className="mb-6 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-sm font-medium">
+                    {statusMessage}
+                </div>
+            )}
 
             {/* Trigger Button Setting */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
