@@ -24,6 +24,18 @@ chrome.runtime.onInstalled.addListener((details) => {
         chrome.storage.local.set(DEFAULT_SETTINGS, () => {
             console.log("GesturesFast: Default settings initialized.");
         });
+    } else if (details.reason === "update") {
+        chrome.storage.local.get(Object.keys(DEFAULT_SETTINGS), (existing) => {
+            const missingSettings: Record<string, unknown> = {};
+            for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
+                if (existing[key] === undefined) {
+                    missingSettings[key] = value;
+                }
+            }
+            if (Object.keys(missingSettings).length > 0) {
+                chrome.storage.local.set(missingSettings);
+            }
+        });
     }
 });
 
