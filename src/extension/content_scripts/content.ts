@@ -7,10 +7,10 @@ class GestureTracker {
     private isCancelled = false;
     private points: { x: number, y: number }[] = [];
     private overlay: HTMLDivElement;
-    private triggerButton = 1;       // 1 = Middle Click, 2 = Right Click
+    private triggerButton = 2;       // 1 = Middle Click, 2 = Right Click
     private lastClickTime = 0;  // For double right-click → context menu
     private showOverlay = true;
-    private arrowColor = '#ffffff';
+    private arrowColor = '#008cff';
     private overlayBgColor = '#000000';
 
     constructor() {

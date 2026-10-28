@@ -21,9 +21,9 @@ export const Options: React.FC = () => {
     const [savedGestures, setSavedGestures] = useState<Record<string, string>>({});
     const [currentSequence, setCurrentSequence] = useState<string>('');
     const [selectedAction, setSelectedAction] = useState('CloseTab');
-    const [triggerButton, setTriggerButton] = useState<number>(1); // 1 = Middle, 2 = Right
+    const [triggerButton, setTriggerButton] = useState<number>(2); // 1 = Middle, 2 = Right
     const [showOverlay, setShowOverlay] = useState<boolean>(true);
-    const [arrowColor, setArrowColor] = useState<string>('#ffffff');
+    const [arrowColor, setArrowColor] = useState<string>('#008cff');
     const [overlayBgColor, setOverlayBgColor] = useState<string>('#000000');
 
     const [blacklistedDomains, setBlacklistedDomains] = useState<string[]>([]);
