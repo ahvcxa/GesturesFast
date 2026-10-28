@@ -4,7 +4,7 @@
   <p><strong>Fast, customizable, and context-aware mouse gesture navigation for your browser.</strong></p>
 
   <p>
-    <a href="https://github.com/ahvcxa/GesturesFast/releases/latest"><img src="https://img.shields.io/badge/version-1.2.5-blue.svg?style=for-the-badge" alt="Version"></a>
+    <a href="https://github.com/ahvcxa/GesturesFast/releases/latest"><img src="https://img.shields.io/badge/version-1.3.0-blue.svg?style=for-the-badge" alt="Version"></a>
     <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="License: MIT"></a>
     <img src="https://img.shields.io/badge/Browser-Chrome-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Browser">
   </p>
@@ -46,7 +46,7 @@ Map your gestures (**Up**, **Down**, **Left**, **Right**) to any of the followin
 
 ### Option 1: Install from Latest Release (Recommended)
 1. Go to the [Releases page](https://github.com/ahvcxa/GesturesFast/releases/latest) of this repository.
-2. Download the `GesturesFast-v1.2.5.zip` file.
+2. Download the `GesturesFast-v1.3.0.zip` file.
 3. Extract the ZIP file into a permanent folder on your computer.
 4. Open Google Chrome and navigate to `chrome://extensions/`.
 5. Enable **Developer mode** in the top right corner.
