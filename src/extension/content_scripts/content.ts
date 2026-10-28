@@ -244,8 +244,30 @@ class GestureTracker {
         window.addEventListener('contextmenu', this.onContextMenu.bind(this), options);
     }
 
+    private isContextValid(): boolean {
+        try {
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+                return true;
+            }
+        } catch {
+            // Extension context was invalidated after an extension reload
+        }
+        this.setDisabled(true);
+        return false;
+    }
+
+    private safeSendMessage(message: unknown) {
+        if (!this.isContextValid()) return;
+        try {
+            chrome.runtime.sendMessage(message).catch(() => { });
+        } catch {
+            this.setDisabled(true);
+        }
+    }
+
     private onMouseDown(e: MouseEvent) {
         if (this.isDisabled || e.button !== this.triggerButton) return;
+        if (!this.isContextValid()) return;
 
         // Always clear movement state so contextmenu handler starts clean
         this.hasMoved = false;
@@ -280,6 +302,7 @@ class GestureTracker {
     private onWheel(e: WheelEvent) {
         if (this.isDisabled || !this.isDrawing || this.isCancelled || !this.enableWheelGestures) return;
         if (e.deltaY === 0) return;
+        if (!this.isContextValid()) return;
 
         e.preventDefault();
         e.stopPropagation();
@@ -289,8 +312,8 @@ class GestureTracker {
         this.hideOverlay();
 
         const actionName = e.deltaY < 0 ? this.wheelUpAction : this.wheelDownAction;
-        if (actionName && chrome && chrome.runtime) {
-            chrome.runtime.sendMessage({
+        if (actionName) {
+            this.safeSendMessage({
                 type: 'EXECUTE_ACTION',
                 payload: { actionName, x: e.clientX, y: e.clientY }
             });
@@ -369,13 +392,11 @@ class GestureTracker {
     }
 
     private sendGesture(sequence: string) {
-        if (chrome && chrome.runtime) {
-            const startPoint = this.points[0];
-            chrome.runtime.sendMessage({
-                type: 'PROCESS_GESTURE',
-                payload: { sequence, x: startPoint.x, y: startPoint.y }
-            });
-        }
+        const startPoint = this.points[0];
+        this.safeSendMessage({
+            type: 'PROCESS_GESTURE',
+            payload: { sequence, x: startPoint.x, y: startPoint.y }
+        });
     }
 }
 
