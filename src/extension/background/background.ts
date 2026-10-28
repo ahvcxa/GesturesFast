@@ -178,9 +178,19 @@ function executeAction(actionName: string, tabId?: number, x?: number, y?: numbe
             break;
         case "ToggleFullscreen":
             chrome.windows.getCurrent((win) => {
-                if (win.id !== undefined) {
-                    const nextState = win.state === "fullscreen" ? "normal" : "fullscreen";
-                    chrome.windows.update(win.id, { state: nextState });
+                if (win.id === undefined) return;
+                const winId = win.id;
+                const storageKey = `prevWinState_${winId}`;
+                if (win.state === "fullscreen") {
+                    chrome.storage.session.get([storageKey], (res) => {
+                        const prevState = (res[storageKey] as chrome.windows.windowStateEnum) || "maximized";
+                        chrome.windows.update(winId, { state: prevState });
+                    });
+                } else {
+                    const currentState = win.state === "normal" || win.state === "maximized" ? win.state : "maximized";
+                    chrome.storage.session.set({ [storageKey]: currentState }, () => {
+                        chrome.windows.update(winId, { state: "fullscreen" });
+                    });
                 }
             });
             break;
