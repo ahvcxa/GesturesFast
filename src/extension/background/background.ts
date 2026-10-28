@@ -1,23 +1,5 @@
 // src/extension/background/background.ts
-
-const DEFAULT_SETTINGS = {
-    customGestures: { 
-        "DR": "CloseTab", 
-        "L": "GoBack", 
-        "R": "GoForward",
-        "U": "ScrollUp",
-        "D": "ScrollDown",
-        "RD": "ScrollBottom",
-        "RU": "ScrollTop",
-        "UD": "Reload",
-        "UL": "PreviousTab"
-    },
-    triggerButton: 2, // right click default
-    showOverlay: true,
-    arrowColor: "#008cff",
-    overlayBgColor: "#000000",
-    blacklistedDomains: []
-};
+import { DEFAULT_SETTINGS } from '../../core/domain/settings';
 
 chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === "install") {
@@ -113,6 +95,19 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     }
 });
 
+function switchAdjacentTab(direction: 1 | -1) {
+    chrome.tabs.query({ currentWindow: true }, (tabs) => {
+        if (tabs.length < 2) return;
+        const activeIndex = tabs.findIndex((t) => t.active);
+        if (activeIndex === -1) return;
+        const targetIndex = (activeIndex + direction + tabs.length) % tabs.length;
+        const targetTabId = tabs[targetIndex]?.id;
+        if (targetTabId !== undefined) {
+            chrome.tabs.update(targetTabId, { active: true });
+        }
+    });
+}
+
 function executeAction(actionName: string, tabId?: number, x?: number, y?: number) {
     switch (actionName) {
         case "CloseTab":
@@ -135,8 +130,39 @@ function executeAction(actionName: string, tabId?: number, x?: number, y?: numbe
                 });
             }
             break;
+        case "NextTab":
+            switchAdjacentTab(1);
+            break;
+        case "PrevTab":
+            switchAdjacentTab(-1);
+            break;
         case "NewTab":
             chrome.tabs.create({});
+            break;
+        case "DuplicateTab":
+            if (tabId) chrome.tabs.duplicate(tabId);
+            break;
+        case "CloseOtherTabs":
+            if (tabId) {
+                chrome.tabs.query({ currentWindow: true }, (tabs) => {
+                    const toClose = tabs
+                        .filter((t) => t.id !== undefined && t.id !== tabId && !t.pinned)
+                        .map((t) => t.id as number);
+                    if (toClose.length > 0) chrome.tabs.remove(toClose);
+                });
+            }
+            break;
+        case "CloseRightTabs":
+            if (tabId) {
+                chrome.tabs.query({ currentWindow: true }, (tabs) => {
+                    const currentTab = tabs.find((t) => t.id === tabId);
+                    if (!currentTab) return;
+                    const toClose = tabs
+                        .filter((t) => t.id !== undefined && t.index > currentTab.index && !t.pinned)
+                        .map((t) => t.id as number);
+                    if (toClose.length > 0) chrome.tabs.remove(toClose);
+                });
+            }
             break;
         case "PinTab":
             if (tabId) {
@@ -145,8 +171,14 @@ function executeAction(actionName: string, tabId?: number, x?: number, y?: numbe
                 });
             }
             break;
-
-
+        case "ToggleFullscreen":
+            chrome.windows.getCurrent((win) => {
+                if (win.id !== undefined) {
+                    const nextState = win.state === "fullscreen" ? "normal" : "fullscreen";
+                    chrome.windows.update(win.id, { state: nextState });
+                }
+            });
+            break;
         case "ReopenTab":
             chrome.sessions.restore();
             break;

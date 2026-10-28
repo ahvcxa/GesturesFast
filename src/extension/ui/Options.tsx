@@ -1,22 +1,6 @@
 // src/extension/ui/Options.tsx
 import React, { useState, useEffect } from 'react';
-
-
-
-const AVAILABLE_ACTIONS = [
-    { id: 'CloseTab', label: 'Close Tab' },
-    { id: 'GoBack', label: 'Go Back' },
-    { id: 'GoForward', label: 'Go Forward' },
-    { id: 'Reload', label: 'Reload Page' },
-    { id: 'ReopenTab', label: 'Reopen Last Closed Tab' },
-    { id: 'PreviousTab', label: 'Go to Previous Tab' },
-    { id: 'NewTab', label: 'Open New Tab' },
-    { id: 'PinTab', label: 'Pin / Unpin Tab' },
-    { id: 'ScrollTop', label: 'Scroll to Top' },
-    { id: 'ScrollBottom', label: 'Scroll to Bottom' },
-    { id: 'ScrollUp', label: 'Scroll Up' },
-    { id: 'ScrollDown', label: 'Scroll Down' },
-];
+import { AVAILABLE_ACTIONS } from '../../core/domain/settings';
 export const Options: React.FC = () => {
     const [savedGestures, setSavedGestures] = useState<Record<string, string>>({});
     const [currentSequence, setCurrentSequence] = useState<string>('');
