@@ -2,8 +2,15 @@
 import { getDirections } from '../../core/domain/recognizer';
 import { ACTION_LABELS, DEFAULT_SETTINGS } from '../../core/domain/settings';
 
+// MouseEvent.buttons bitmask for each MouseEvent.button value (left = 1, right = 2, middle = 4)
+const TRIGGER_BUTTON_MASKS: Record<number, number> = { 0: 1, 1: 4, 2: 2 };
+
 class GestureTracker {
-    private isDisabled = false;
+    // Disabled until settings are loaded; listeners are bound immediately so they run before page scripts
+    private isDisabled = true;
+    private settingsLoaded = false;
+    private isBlacklisted = false;
+    private suppressNextAuxClick = false;
     private isDrawing = false;
     private hasMoved = false;
     private hasWheeled = false;
@@ -27,16 +34,30 @@ class GestureTracker {
     public setDisabled(disabled: boolean) {
         this.isDisabled = disabled;
         if (disabled) {
-            this.isDrawing = false;
-            this.hasMoved = false;
-            this.hasWheeled = false;
-            this.isCancelled = false;
-            this.hideOverlay();
+            this.resetGestureState();
         }
     }
 
+    /** Clears all in-flight gesture state (tab hidden, window blurred, or trigger release lost). */
+    private resetGestureState() {
+        this.isDrawing = false;
+        this.hasMoved = false;
+        this.hasWheeled = false;
+        this.isCancelled = false;
+        this.suppressNextAuxClick = false;
+        this.points = [];
+        this.hideOverlay();
+    }
+
+    private updateDisabledState() {
+        this.setDisabled(!this.settingsLoaded || this.isBlacklisted);
+    }
+
     constructor() {
-        // Load the user's preferred settings before binding events
+        // Bind capture listeners synchronously (document_start) so they precede page listeners;
+        // the tracker stays inert until the settings below have been loaded.
+        this.bindEvents();
+
         chrome.storage.local.get(
             [
                 'customGestures',
@@ -47,7 +68,8 @@ class GestureTracker {
                 'overlayBgColor',
                 'enableWheelGestures',
                 'wheelUpAction',
-                'wheelDownAction'
+                'wheelDownAction',
+                'blacklistedDomains'
             ],
             (result) => {
                 if (result.customGestures !== undefined) {
@@ -77,8 +99,10 @@ class GestureTracker {
                 if (result.wheelDownAction !== undefined) {
                     this.wheelDownAction = result.wheelDownAction;
                 }
+                this.isBlacklisted = isDomainBlacklisted(window.location.hostname, result.blacklistedDomains || []);
+                this.settingsLoaded = true;
                 this.applyOverlayColors();
-                this.bindEvents();
+                this.updateDisabledState();
             }
         );
 
@@ -116,6 +140,10 @@ class GestureTracker {
                 }
                 if (changes.wheelDownAction !== undefined) {
                     this.wheelDownAction = changes.wheelDownAction.newValue;
+                }
+                if (changes.blacklistedDomains !== undefined) {
+                    this.isBlacklisted = isDomainBlacklisted(window.location.hostname, changes.blacklistedDomains.newValue || []);
+                    this.updateDisabledState();
                 }
             }
         });
@@ -237,11 +265,40 @@ class GestureTracker {
     private bindEvents() {
         const options = { capture: true };
         window.addEventListener('mousedown', this.onMouseDown.bind(this), options);
+        window.addEventListener('pointermove', this.onPointerMove.bind(this), options);
         window.addEventListener('mousemove', this.onMouseMove.bind(this), options);
+        window.addEventListener('pointerup', this.onPointerUp.bind(this), options);
         window.addEventListener('mouseup', this.onMouseUp.bind(this), options);
+        window.addEventListener('auxclick', this.onAuxClick.bind(this), options);
         window.addEventListener('wheel', this.onWheel.bind(this), { capture: true, passive: false });
         window.addEventListener('keydown', this.onKeyDown.bind(this), options);
         window.addEventListener('contextmenu', this.onContextMenu.bind(this), options);
+
+        // A wheel tab switch (or releasing over another window/iframe) means this page never
+        // receives the trigger mouseup, so drop any in-flight gesture when focus/visibility is lost.
+        const reset = () => this.resetGestureState();
+        window.addEventListener('blur', reset);
+        window.addEventListener('pagehide', reset);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) reset();
+        });
+    }
+
+    /** False when the trigger button is no longer physically held (its mouseup was missed). */
+    private isTriggerHeld(e: MouseEvent): boolean {
+        const mask = TRIGGER_BUTTON_MASKS[this.triggerButton] ?? 0;
+        return (e.buttons & mask) !== 0;
+    }
+
+    /** True while a recognized drag/wheel gesture is in progress and must be hidden from the page. */
+    private isGestureActive(): boolean {
+        return this.isDrawing && !this.isCancelled && (this.hasMoved || this.hasWheeled);
+    }
+
+    /** Cancels the default action and keeps the event away from every page listener. */
+    private swallow(e: Event) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
     }
 
     private isContextValid(): boolean {
@@ -273,6 +330,7 @@ class GestureTracker {
         this.hasMoved = false;
         this.hasWheeled = false;
         this.isCancelled = false;
+        this.suppressNextAuxClick = false;
 
         // Double-click bypass for Middle-Click Auto-Scroll, or Right-Click Context Menu on platforms
         // (such as Linux) where contextmenu fires on mousedown and was suppressed on the first click.
@@ -301,11 +359,15 @@ class GestureTracker {
 
     private onWheel(e: WheelEvent) {
         if (this.isDisabled || !this.isDrawing || this.isCancelled || !this.enableWheelGestures) return;
+        if (!this.isTriggerHeld(e)) {
+            // Stale state: the trigger was released where we could not observe it. Let the page scroll.
+            this.resetGestureState();
+            return;
+        }
         if (e.deltaY === 0) return;
         if (!this.isContextValid()) return;
 
-        e.preventDefault();
-        e.stopPropagation();
+        this.swallow(e);
 
         this.hasWheeled = true;
         this.hasMoved = false;
@@ -320,20 +382,40 @@ class GestureTracker {
         }
     }
 
+    private onPointerMove(e: PointerEvent) {
+        // Pointer events precede mouse events; hide gesture movement from page drag/hover handlers
+        if (this.isGestureActive() && this.isTriggerHeld(e)) {
+            e.stopImmediatePropagation();
+        }
+    }
+
+    private onPointerUp(e: PointerEvent) {
+        if (e.button === this.triggerButton && this.isGestureActive()) {
+            e.stopImmediatePropagation();
+        }
+    }
+
     private onMouseMove(e: MouseEvent) {
-        if (!this.isDrawing || this.isCancelled || this.hasWheeled) return;
+        if (!this.isDrawing || this.isCancelled) return;
+        if (!this.isTriggerHeld(e)) {
+            this.resetGestureState();
+            return;
+        }
+        if (this.hasWheeled) {
+            this.swallow(e);
+            return;
+        }
 
         const startPt = this.points[0];
         const dx = e.clientX - startPt.x;
         const dy = e.clientY - startPt.y;
 
-        if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
+        if (!this.hasMoved && (Math.abs(dx) > 15 || Math.abs(dy) > 15)) {
             this.hasMoved = true;
-            e.preventDefault();
-            e.stopPropagation();
         }
 
         if (this.hasMoved) {
+            this.swallow(e);
             this.points.push({ x: e.clientX, y: e.clientY });
             const sequence = getDirections(this.points);
 
@@ -353,9 +435,16 @@ class GestureTracker {
 
     private onMouseUp(e: MouseEvent) {
         if (e.button !== this.triggerButton || !this.isDrawing) return;
+        const wasGesture = this.isGestureActive();
         this.isDrawing = false;
 
         this.hideOverlay();
+
+        if (wasGesture) {
+            // Keep the page from treating the gesture release as a click (e.g. middle-click opening a link)
+            this.suppressNextAuxClick = true;
+            this.swallow(e);
+        }
 
         if (this.hasMoved && !this.hasWheeled && !this.isCancelled) {
             const sequence = getDirections(this.points);
@@ -363,6 +452,12 @@ class GestureTracker {
                 this.sendGesture(sequence);
             }
         }
+    }
+
+    private onAuxClick(e: MouseEvent) {
+        if (e.button !== this.triggerButton || !this.suppressNextAuxClick) return;
+        this.suppressNextAuxClick = false;
+        this.swallow(e);
     }
 
     private onKeyDown(e: KeyboardEvent) {
@@ -379,7 +474,7 @@ class GestureTracker {
         // Record that suppression happened on mousedown so a double right-click can open the native menu.
         if (this.isDrawing) {
             this.contextMenuSuppressedOnDown = true;
-            e.preventDefault();
+            this.swallow(e); // also hides it from site-level custom context menus
             return;
         }
         // On Windows/macOS, contextmenu fires after mouseup (isDrawing is false).
@@ -387,7 +482,7 @@ class GestureTracker {
         if (this.hasMoved || this.hasWheeled) {
             this.hasMoved = false;
             this.hasWheeled = false;
-            e.preventDefault();
+            this.swallow(e);
         }
     }
 
@@ -477,46 +572,19 @@ function isDomainBlacklisted(hostname: string, blacklistedDomains: string[]): bo
     });
 }
 
-let tracker: GestureTracker | null = null;
-let pageListenerBound = false;
+// Created immediately (document_start) so its capture listeners are registered before any page script.
+// Settings and blacklist state are loaded asynchronously inside the tracker.
+new GestureTracker();
 
-function applyBlacklistState(blacklistedDomains: string[]) {
-    const blacklisted = isDomainBlacklisted(window.location.hostname, blacklistedDomains);
-    if (blacklisted) {
-        tracker?.setDisabled(true);
-        return;
-    }
-
-    if (!tracker) {
-        tracker = new GestureTracker();
-    } else {
-        tracker.setDisabled(false);
-    }
-
-    if (!pageListenerBound) {
-        pageListenerBound = true;
-        chrome.runtime.onMessage.addListener((message) => {
-            if (tracker && message.type === 'PAGE_ACTION') {
-                if (message.action === 'ScrollTop') {
-                    smartScroll('top', message.x, message.y);
-                } else if (message.action === 'ScrollBottom') {
-                    smartScroll('bottom', message.x, message.y);
-                } else if (message.action === 'ScrollUp') {
-                    smartScroll('up', message.x, message.y);
-                } else if (message.action === 'ScrollDown') {
-                    smartScroll('down', message.x, message.y);
-                }
-            }
-        });
-    }
-}
-
-chrome.storage.local.get(['blacklistedDomains'], (result) => {
-    applyBlacklistState(result.blacklistedDomains || []);
-});
-
-chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.blacklistedDomains !== undefined) {
-        applyBlacklistState(changes.blacklistedDomains.newValue || []);
+chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type !== 'PAGE_ACTION') return;
+    if (message.action === 'ScrollTop') {
+        smartScroll('top', message.x, message.y);
+    } else if (message.action === 'ScrollBottom') {
+        smartScroll('bottom', message.x, message.y);
+    } else if (message.action === 'ScrollUp') {
+        smartScroll('up', message.x, message.y);
+    } else if (message.action === 'ScrollDown') {
+        smartScroll('down', message.x, message.y);
     }
 });
